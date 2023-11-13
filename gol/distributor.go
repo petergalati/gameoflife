@@ -41,6 +41,7 @@ func distributor(p Params, c distributorChannels) {
 	// TODO: Execute all turns of the Game of Life.
 	for turn < p.Turns {
 		world = calculateNextState(world)
+		//world = workerBoss(p, world)
 		turn += 1
 
 		c.events <- TurnComplete{turn}
