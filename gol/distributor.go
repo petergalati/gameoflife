@@ -43,9 +43,18 @@ func distributor(p Params, c distributorChannels) {
 		//world = calculateNextState(world)
 		world = workerBoss(p, world)
 		turn += 1
-
+		c.events <- AliveCellsCount{turn, len(calculateAliveCells(world))}
 		c.events <- TurnComplete{turn}
 	}
+
+	//Writing to the output file
+	c.ioCommand <- ioOutput
+	c.ioFilename <- fmt.Sprint(height, "x", width, "x", turn)
+	for i := 0; i < width*height; i++ {
+		//essentially creating a slice of all the bytes
+		c.ioOutput <- world[i/height][i%height]
+	}
+
 	// TODO: Report the final state using FinalTurnCompleteEvent.
 	c.events <- FinalTurnComplete{p.Turns, calculateAliveCells(world)}
 	// Make sure that the Io has finished any output before exiting.
@@ -56,6 +65,11 @@ func distributor(p Params, c distributorChannels) {
 	close(c.events)
 
 }
+
+//func checkAliveTimer(events chan Event) {
+//	time.Sleep(2 * time.Second)
+//	events <- AliveCellsCount{}
+//}
 
 // gol code from week 1/2
 
@@ -93,7 +107,7 @@ func checkNeighbours(world [][]byte, r int, c int) int {
 }
 
 func calculateAliveCells(world [][]byte) []util.Cell {
-	fmt.Println("counting alive cells")
+	//fmt.Println("counting alive cells")
 	var celllist []util.Cell
 	for r, row := range world {
 		for c := range row {
@@ -102,6 +116,6 @@ func calculateAliveCells(world [][]byte) []util.Cell {
 			}
 		}
 	}
-	fmt.Println("done counting alive cells")
+	//fmt.Println("done counting alive cells")
 	return celllist
 }

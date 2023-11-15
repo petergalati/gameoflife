@@ -20,7 +20,7 @@ func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, 
 	for y := range segment {
 		for x := range segment[y] {
 			//count neighbours
-			neighbourCount := checkNeighbours(world, y, x)
+			neighbourCount := checkNeighbours(world, y+startY, x)
 			if segment[y][x] == 255 {
 				if !(neighbourCount < 2 || neighbourCount > 3) {
 					//return a cell when its alive
