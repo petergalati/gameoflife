@@ -40,8 +40,8 @@ func distributor(p Params, c distributorChannels) {
 
 	// TODO: Execute all turns of the Game of Life.
 	for turn < p.Turns {
-		world = calculateNextState(world)
-		//world = workerBoss(p, world)
+		//world = calculateNextState(world)
+		world = workerBoss(p, world)
 		turn += 1
 
 		c.events <- TurnComplete{turn}
@@ -58,33 +58,6 @@ func distributor(p Params, c distributorChannels) {
 }
 
 // gol code from week 1/2
-
-func calculateNextState(world [][]byte) [][]byte {
-	nextWorld := make([][]byte, len(world))
-	for i := range world {
-		nextWorld[i] = make([]byte, len(world[i]))
-		copy(nextWorld[i], world[i])
-	}
-
-	for r, row := range world {
-		for c := range row {
-			neighbourCount := 0
-			neighbourCount = checkNeighbours(world, r, c)
-
-			if world[r][c] == 255 { // cell is alive
-				if neighbourCount < 2 || neighbourCount > 3 {
-					nextWorld[r][c] = 0 // cell dies
-				}
-			} else {
-				if neighbourCount == 3 {
-					nextWorld[r][c] = 255
-				} // cell is dead
-			}
-		}
-	}
-
-	return nextWorld
-}
 
 func checkNeighbours(world [][]byte, r int, c int) int {
 	neighbourCount := 0

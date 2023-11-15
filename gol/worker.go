@@ -10,7 +10,9 @@ func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, 
 	//fmt.Println("start: ", startY, " end: ", endY)
 	segment := make([][]byte, endY-startY)
 	for y := range segment {
+		segment[y] = make([]byte, endX)
 		copy(segment[y], world[y+startY])
+
 	}
 
 	//calc next state
@@ -22,12 +24,13 @@ func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, 
 			if segment[y][x] == 255 {
 				if !(neighbourCount < 2 || neighbourCount > 3) {
 					//return a cell when its alive
-					out <- util.Cell{X: x, Y: y}
+					out <- util.Cell{X: x, Y: y + startY}
+
 				}
 			} else {
 				if neighbourCount == 3 {
 					//return a cell when its alive
-					out <- util.Cell{X: x, Y: y}
+					out <- util.Cell{X: x, Y: y + startY}
 				}
 			}
 		}
@@ -65,10 +68,10 @@ func workerBoss(p Params, world [][]byte) [][]byte {
 		case done := <-workersDone:
 			doneCount += done
 			if doneCount >= threads {
-				break
+				return newWorld
 			}
 		}
 
-		return newWorld
 	}
+
 }
