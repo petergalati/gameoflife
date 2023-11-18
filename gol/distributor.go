@@ -2,6 +2,7 @@ package gol
 
 import (
 	"fmt"
+	"time"
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
@@ -26,7 +27,6 @@ func distributor(p Params, c distributorChannels) {
 	}
 
 	fmt.Println("hello")
-	//c.ioFilename <- fmt.Sprint(height, "x", width)
 	c.ioCommand <- ioInput
 	c.ioFilename <- fmt.Sprint(height, "x", width)
 
@@ -37,15 +37,28 @@ func distributor(p Params, c distributorChannels) {
 	}
 
 	turn := 0
+	done := make(chan bool)
+	ticker := time.NewTicker(2 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				c.events <- AliveCellsCount{turn, len(calculateAliveCells(world))}
+			}
+		}
+	}()
 
 	// TODO: Execute all turns of the Game of Life.
 	for turn < p.Turns {
-		//world = calculateNextState(world)
 		world = workerBoss(p, world)
 		turn += 1
-		c.events <- AliveCellsCount{turn, len(calculateAliveCells(world))}
 		c.events <- TurnComplete{turn}
+
 	}
+	ticker.Stop()
+	done <- true
 
 	//Writing to the output file
 	c.ioCommand <- ioOutput
@@ -65,11 +78,6 @@ func distributor(p Params, c distributorChannels) {
 	close(c.events)
 
 }
-
-//func checkAliveTimer(events chan Event) {
-//	time.Sleep(2 * time.Second)
-//	events <- AliveCellsCount{}
-//}
 
 // gol code from week 1/2
 
@@ -116,6 +124,5 @@ func calculateAliveCells(world [][]byte) []util.Cell {
 			}
 		}
 	}
-	//fmt.Println("done counting alive cells")
 	return celllist
 }
