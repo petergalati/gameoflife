@@ -1,5 +1,6 @@
 package gol
 
+//test
 import (
 	"fmt"
 	"uk.ac.bris.cs/gameoflife/util"
