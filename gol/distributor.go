@@ -18,17 +18,23 @@ type distributorChannels struct {
 }
 
 func callEngineEvolve(client *rpc.Client, p Params, c distributorChannels, world [][]byte) {
-	request := stubs.EngineRequest{world, p.Turns}
+	request := stubs.EngineRequest{World: world, Turns: p.Turns}
 	response := new(stubs.EngineResponse)
 	client.Call("Engine.Evolve", request, response)
 	c.events <- FinalTurnComplete{p.Turns, response.AliveCells}
 }
 
-func callEngineAlive(client *rpc.Client, c distributorChannels) {
-	request := &stubs.EngineRequest{}
-	response := &stubs.EngineResponse{}
-	client.Call("Engine.Alive", request, response)
-	c.events <- AliveCellsCount{response.CurrentTurn, len(response.AliveCells)}
+func pollEngineAlive(client *rpc.Client, c distributorChannels) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		request := stubs.EngineRequest{}
+		response := new(stubs.EngineResponse)
+		client.Call("Engine.Alive", request, response)
+		c.events <- AliveCellsCount{response.CurrentTurn, len(response.AliveCells)}
+	}
+
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -42,8 +48,6 @@ func distributor(p Params, c distributorChannels) {
 		world[i] = make([]byte, width)
 	}
 
-	fmt.Println("hello")
-	//c.ioFilename <- fmt.Sprint(height, "x", width)
 	c.ioCommand <- ioInput
 	c.ioFilename <- fmt.Sprint(height, "x", width)
 
@@ -55,26 +59,12 @@ func distributor(p Params, c distributorChannels) {
 
 	client, _ := rpc.Dial("tcp", "localhost:8030")
 
-	// ticker to make rpc call to engine to poll alive cells every 2 seconds
-	done := make(chan bool)
-	ticker := time.NewTicker(2 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				callEngineAlive(client, c)
-			}
-		}
-	}()
+	// ticker goroutine to make rpc call to engine to poll alive cells every 2 seconds
+	go pollEngineAlive(client, c)
 
 	//make rpc call to engine
 
 	callEngineEvolve(client, p, c, world)
-
-	ticker.Stop()
-	done <- true
 
 	//turn := 0
 	//

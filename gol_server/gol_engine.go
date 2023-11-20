@@ -2,32 +2,44 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net"
 	"net/rpc"
+	"sync"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
 	//"uk.ac.bris.cs/gameoflife/util"
 )
 
-type Engine struct{}
+type Engine struct {
+	mu           sync.Mutex
+	currentWorld [][]byte
+	currentTurn  int
+}
 
 func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
+
 	world := req.World
 	turn := 0
 	for turn < req.Turns {
 		world = calculateNextState(world)
+		e.mu.Lock() // lock the engine
+
 		turn += 1
+		e.currentWorld = world
+		e.currentTurn = turn
+		e.mu.Unlock() // unlock the engine
 	}
 	res.CurrentTurn = turn
-	//res.World = world
 	res.AliveCells = calculateAliveCells(world)
 	return
 }
 
 func (e *Engine) Alive(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
-	res.AliveCells = calculateAliveCells(req.World)
+	e.mu.Lock()         // lock the engine
+	defer e.mu.Unlock() // unlock the engine once the function is done
 
+	res.AliveCells = calculateAliveCells(e.currentWorld)
+	res.CurrentTurn = e.currentTurn
 	return
 }
 
@@ -94,7 +106,6 @@ func checkNeighbours(world [][]byte, r int, c int) int {
 }
 
 func calculateAliveCells(world [][]byte) []util.Cell {
-	fmt.Println("counting alive cells")
 	var celllist []util.Cell
 	for r, row := range world {
 		for c := range row {
@@ -103,7 +114,6 @@ func calculateAliveCells(world [][]byte) []util.Cell {
 			}
 		}
 	}
-	fmt.Println("done counting alive cells")
 	return celllist
 }
 
