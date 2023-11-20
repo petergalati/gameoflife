@@ -4,6 +4,7 @@ package gol
 import (
 	"fmt"
 	"net/rpc"
+	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 )
 
@@ -16,11 +17,18 @@ type distributorChannels struct {
 	ioInput    <-chan uint8
 }
 
-func callEngine(client *rpc.Client, p Params, c distributorChannels, world [][]byte) {
-	request := stubs.EngineRequest{World: world, Turns: p.Turns}
+func callEngineEvolve(client *rpc.Client, p Params, c distributorChannels, world [][]byte) {
+	request := stubs.EngineRequest{world, p.Turns}
 	response := new(stubs.EngineResponse)
 	client.Call("Engine.Evolve", request, response)
 	c.events <- FinalTurnComplete{p.Turns, response.AliveCells}
+}
+
+func callEngineAlive(client *rpc.Client, c distributorChannels) {
+	request := &stubs.EngineRequest{}
+	response := &stubs.EngineResponse{}
+	client.Call("Engine.Alive", request, response)
+	c.events <- AliveCellsCount{response.CurrentTurn, len(response.AliveCells)}
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -45,10 +53,28 @@ func distributor(p Params, c distributorChannels) {
 		}
 	}
 
+	client, _ := rpc.Dial("tcp", "localhost:8030")
+
+	// ticker to make rpc call to engine to poll alive cells every 2 seconds
+	done := make(chan bool)
+	ticker := time.NewTicker(2 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				callEngineAlive(client, c)
+			}
+		}
+	}()
+
 	//make rpc call to engine
 
-	client, _ := rpc.Dial("tcp", "localhost:8030")
-	callEngine(client, p, c, world)
+	callEngineEvolve(client, p, c, world)
+
+	ticker.Stop()
+	done <- true
 
 	//turn := 0
 	//

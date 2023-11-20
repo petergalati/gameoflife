@@ -8,6 +8,7 @@ type EngineRequest struct {
 }
 
 type EngineResponse struct {
-	World      [][]byte
-	AliveCells []util.Cell
+	//World      [][]byte
+	AliveCells  []util.Cell
+	CurrentTurn int
 }

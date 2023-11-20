@@ -14,12 +14,20 @@ type Engine struct{}
 
 func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
 	world := req.World
-	for i := 0; i < req.Turns; i++ {
+	turn := 0
+	for turn < req.Turns {
 		world = calculateNextState(world)
-
+		turn += 1
 	}
-	res.World = world
+	res.CurrentTurn = turn
+	//res.World = world
 	res.AliveCells = calculateAliveCells(world)
+	return
+}
+
+func (e *Engine) Alive(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
+	res.AliveCells = calculateAliveCells(req.World)
+
 	return
 }
 
