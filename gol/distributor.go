@@ -4,7 +4,7 @@ package gol
 import (
 	"fmt"
 	"net/rpc"
-	"uk.ac.bris.cs/gameoflife/gol_server"
+	"uk.ac.bris.cs/gameoflife/stubs"
 )
 
 type distributorChannels struct {
@@ -17,8 +17,8 @@ type distributorChannels struct {
 }
 
 func callEngine(client *rpc.Client, p Params, c distributorChannels, world [][]byte) {
-	request := gol_server.EngineRequest{World: world, Turns: p.Turns}
-	response := new(gol_server.EngineResponse)
+	request := stubs.EngineRequest{World: world, Turns: p.Turns}
+	response := new(stubs.EngineResponse)
 	client.Call("Engine.Evolve", request, response)
 	c.events <- FinalTurnComplete{p.Turns, response.AliveCells}
 }
@@ -47,7 +47,7 @@ func distributor(p Params, c distributorChannels) {
 
 	//make rpc call to engine
 
-	client, _ := rpc.Dial("tcp", "localhost:8000")
+	client, _ := rpc.Dial("tcp", "localhost:8030")
 	callEngine(client, p, c, world)
 
 	//turn := 0

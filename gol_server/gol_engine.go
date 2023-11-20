@@ -5,27 +5,22 @@ import (
 	"fmt"
 	"net"
 	"net/rpc"
+	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
+	//"uk.ac.bris.cs/gameoflife/util"
 )
-
-type EngineRequest struct {
-	World [][]byte
-	Turns int
-}
-
-type EngineResponse struct {
-	World      [][]byte
-	AliveCells []util.Cell
-}
 
 type Engine struct{}
 
-func (e *Engine) Evolve(req EngineRequest, res EngineResponse) {
+func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
+	world := req.World
 	for i := 0; i < req.Turns; i++ {
-		res.World = calculateNextState(req.World)
+		world = calculateNextState(world)
 
 	}
-	res.AliveCells = calculateAliveCells(res.World)
+	res.World = world
+	res.AliveCells = calculateAliveCells(world)
+	return
 }
 
 // gol code from week 1/2
