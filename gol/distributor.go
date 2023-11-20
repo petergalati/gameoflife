@@ -3,7 +3,8 @@ package gol
 //test
 import (
 	"fmt"
-	"uk.ac.bris.cs/gameoflife/util"
+	"net/rpc"
+	"uk.ac.bris.cs/gameoflife/gol_server"
 )
 
 type distributorChannels struct {
@@ -13,6 +14,13 @@ type distributorChannels struct {
 	ioFilename chan<- string
 	ioOutput   chan<- uint8
 	ioInput    <-chan uint8
+}
+
+func callEngine(client *rpc.Client, p Params, c distributorChannels, world [][]byte) {
+	request := gol_server.EngineRequest{World: world, Turns: p.Turns}
+	response := new(gol_server.EngineResponse)
+	client.Call("Engine.Evolve", request, response)
+	c.events <- FinalTurnComplete{p.Turns, response.AliveCells}
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -37,98 +45,28 @@ func distributor(p Params, c distributorChannels) {
 		}
 	}
 
-	turn := 0
+	//make rpc call to engine
 
-	// TODO: Execute all turns of the Game of Life.
-	for turn < p.Turns {
-		world = calculateNextState(world)
-		turn += 1
+	client, _ := rpc.Dial("tcp", "localhost:8000")
+	callEngine(client, p, c, world)
 
-		c.events <- TurnComplete{turn}
-	}
-	// TODO: Report the final state using FinalTurnCompleteEvent.
-	c.events <- FinalTurnComplete{p.Turns, calculateAliveCells(world)}
+	//turn := 0
+	//
+	//// TODO: Execute all turns of the Game of Life.
+	//for turn < p.Turns {
+	//	world = calculateNextState(world)
+	//	turn += 1
+	//
+	//	c.events <- TurnComplete{turn}
+	//}
+	//// TODO: Report the final state using FinalTurnCompleteEvent.
+	//c.events <- FinalTurnComplete{p.Turns, calculateAliveCells(world)}
+
 	// Make sure that the Io has finished any output before exiting.
 	c.ioCommand <- ioCheckIdle
 	<-c.ioIdle
-	c.events <- StateChange{turn, Quitting}
+	//c.events <- StateChange{turn, Quitting}
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)
 
-}
-
-// gol code from week 1/2
-
-func calculateNextState(world [][]byte) [][]byte {
-	nextWorld := make([][]byte, len(world))
-	for i := range world {
-		nextWorld[i] = make([]byte, len(world[i]))
-		copy(nextWorld[i], world[i])
-	}
-
-	for r, row := range world {
-		for c := range row {
-			neighbourCount := 0
-			neighbourCount = checkNeighbours(world, r, c)
-
-			if world[r][c] == 255 { // cell is alive
-				if neighbourCount < 2 || neighbourCount > 3 {
-					nextWorld[r][c] = 0 // cell dies
-				}
-			} else {
-				if neighbourCount == 3 {
-					nextWorld[r][c] = 255
-				} // cell is dead
-			}
-		}
-	}
-
-	return nextWorld
-}
-
-func checkNeighbours(world [][]byte, r int, c int) int {
-	neighbourCount := 0
-
-	rows := len(world)
-	columns := len(world[0])
-
-	for i := r - 1; i <= r+1; i++ {
-		for j := c - 1; j <= c+1; j++ {
-			iCheck := i
-			jCheck := j
-			if iCheck < 0 {
-				iCheck = rows - 1
-			}
-			if jCheck < 0 {
-				jCheck = columns - 1
-			}
-			if iCheck >= rows {
-				iCheck = 0
-			}
-			if jCheck >= columns {
-				jCheck = 0
-			}
-
-			if world[iCheck][jCheck] == 255 {
-				if i != r || j != c { // same as !( i == r && j == c)
-					neighbourCount++
-				}
-			}
-		}
-	}
-	return neighbourCount
-}
-
-func calculateAliveCells(world [][]byte) []util.Cell {
-	fmt.Println("counting alive cells")
-	var celllist []util.Cell
-	for r, row := range world {
-		for c := range row {
-			if world[r][c] == 255 {
-				celllist = append(celllist, util.Cell{X: c, Y: r})
-			}
-		}
-	}
-	fmt.Println("done counting alive cells")
-	return celllist
 }
