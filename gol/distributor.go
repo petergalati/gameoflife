@@ -26,7 +26,6 @@ func distributor(p Params, c distributorChannels) {
 		world[i] = make([]byte, width)
 	}
 
-	fmt.Println("hello")
 	c.ioCommand <- ioInput
 	c.ioFilename <- fmt.Sprint(height, "x", width)
 
@@ -51,10 +50,12 @@ func distributor(p Params, c distributorChannels) {
 	}()
 
 	// TODO: Execute all turns of the Game of Life.
+	flipCellsEvent(turn, world, c)
 	for turn < p.Turns {
 		world = workerBoss(p, world)
 		turn += 1
 		c.events <- TurnComplete{turn}
+		flipCellsEvent(turn, world, c)
 
 	}
 	ticker.Stop()
@@ -78,8 +79,6 @@ func distributor(p Params, c distributorChannels) {
 	close(c.events)
 
 }
-
-// gol code from week 1/2
 
 func checkNeighbours(world [][]byte, r int, c int) int {
 	neighbourCount := 0
@@ -115,7 +114,6 @@ func checkNeighbours(world [][]byte, r int, c int) int {
 }
 
 func calculateAliveCells(world [][]byte) []util.Cell {
-	//fmt.Println("counting alive cells")
 	var celllist []util.Cell
 	for r, row := range world {
 		for c := range row {
@@ -125,4 +123,10 @@ func calculateAliveCells(world [][]byte) []util.Cell {
 		}
 	}
 	return celllist
+}
+
+func flipCellsEvent(turn int, world [][]byte, c distributorChannels) {
+	for _, cell := range calculateAliveCells(world) {
+		c.events <- CellFlipped{turn, cell}
+	}
 }
