@@ -13,6 +13,7 @@ type distributorChannels struct {
 	ioFilename chan<- string
 	ioOutput   chan<- uint8
 	ioInput    <-chan uint8
+	keyPresses <-chan rune
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -20,7 +21,7 @@ func distributor(p Params, c distributorChannels) {
 	width := p.ImageWidth
 	height := p.ImageHeight
 
-	// TODO: Create a 2D slice to store the world.
+	// Create a 2D slice to store the world.
 	world := make([][]byte, height)
 	for i := range world {
 		world[i] = make([]byte, width)
@@ -36,6 +37,32 @@ func distributor(p Params, c distributorChannels) {
 	}
 
 	turn := 0
+
+	// goroutine to handle key presses
+	go func() {
+		for {
+			select {
+			case key := <-c.keyPresses:
+				switch key {
+				case 's':
+					// generate pgm file with current state
+					generatePgmFile(c, world, height, width, turn)
+
+				case 'q':
+					// generate pgm file with current state and quit
+					generatePgmFile(c, world, height, width, turn)
+					c.events <- StateChange{turn, Quitting}
+					close(c.events)
+
+				case 'p':
+					// pause the game and print "Continuing"
+					c.events <- StateChange{turn, Paused}
+				}
+
+			}
+		}
+	}()
+
 	done := make(chan bool)
 	ticker := time.NewTicker(2 * time.Second)
 	go func() {
@@ -49,7 +76,7 @@ func distributor(p Params, c distributorChannels) {
 		}
 	}()
 
-	// TODO: Execute all turns of the Game of Life.
+	// Execute all turns of the Game of Life.
 	flipCellsEvent(turn, world, c)
 	for turn < p.Turns {
 		world = workerBoss(p, world)
@@ -62,14 +89,9 @@ func distributor(p Params, c distributorChannels) {
 	done <- true
 
 	//Writing to the output file
-	c.ioCommand <- ioOutput
-	c.ioFilename <- fmt.Sprint(height, "x", width, "x", turn)
-	for i := 0; i < width*height; i++ {
-		//essentially creating a slice of all the bytes
-		c.ioOutput <- world[i/height][i%height]
-	}
+	generatePgmFile(c, world, height, width, turn)
 
-	// TODO: Report the final state using FinalTurnCompleteEvent.
+	// Report the final state using FinalTurnCompleteEvent.
 	c.events <- FinalTurnComplete{p.Turns, calculateAliveCells(world)}
 	// Make sure that the Io has finished any output before exiting.
 	c.ioCommand <- ioCheckIdle
@@ -129,4 +151,15 @@ func flipCellsEvent(turn int, world [][]byte, c distributorChannels) {
 	for _, cell := range calculateAliveCells(world) {
 		c.events <- CellFlipped{turn, cell}
 	}
+}
+
+func generatePgmFile(c distributorChannels, world [][]byte, height int, width int, turn int) {
+	//Writing to the output file
+	c.ioCommand <- ioOutput
+	c.ioFilename <- fmt.Sprint(height, "x", width, "x", turn)
+	for i := 0; i < width*height; i++ {
+		//essentially creating a slice of all the bytes
+		c.ioOutput <- world[i/height][i%height]
+	}
+
 }
