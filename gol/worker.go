@@ -4,7 +4,7 @@ import (
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
-func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, complete chan int) {
+func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, complete chan int, events chan<- Event, turn int) {
 
 	//split world
 	//fmt.Println("start: ", startY, " end: ", endY)
@@ -25,12 +25,16 @@ func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, 
 				if !(neighbourCount < 2 || neighbourCount > 3) {
 					//return a cell when its alive
 					out <- util.Cell{X: x, Y: y + startY}
-
+				} else {
+					//alive -> dead
+					events <- CellFlipped{turn, util.Cell{X: x, Y: y + startY}}
 				}
 			} else {
 				if neighbourCount == 3 {
 					//return a cell when its alive
 					out <- util.Cell{X: x, Y: y + startY}
+					//dead ->alive
+					events <- CellFlipped{turn, util.Cell{X: x, Y: y + startY}}
 				}
 			}
 		}
@@ -41,7 +45,7 @@ func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, 
 
 }
 
-func workerBoss(p Params, world [][]byte) [][]byte {
+func workerBoss(p Params, world [][]byte, events chan<- Event, turn int) [][]byte {
 	threads := p.Threads
 	workerWorld := make(chan util.Cell)
 	workersDone := make(chan int)
@@ -51,7 +55,7 @@ func workerBoss(p Params, world [][]byte) [][]byte {
 		endX := p.ImageWidth
 		startY := i * p.ImageHeight / threads
 		endY := (i + 1) * p.ImageHeight / threads
-		go worker(startX, endX, startY, endY, world, workerWorld, workersDone)
+		go worker(startX, endX, startY, endY, world, workerWorld, workersDone, events, turn)
 	}
 
 	//making new empty world

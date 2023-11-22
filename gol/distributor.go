@@ -79,10 +79,11 @@ func distributor(p Params, c distributorChannels) {
 	// Execute all turns of the Game of Life.
 	flipCellsEvent(turn, world, c)
 	for turn < p.Turns {
-		world = workerBoss(p, world)
+
 		turn += 1
+		world = workerBoss(p, world, c.events, turn)
 		c.events <- TurnComplete{turn}
-		flipCellsEvent(turn, world, c)
+		//flipCellsEvent(turn, world, c)
 
 	}
 	ticker.Stop()
