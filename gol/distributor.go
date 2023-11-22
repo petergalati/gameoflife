@@ -63,25 +63,12 @@ func distributor(p Params, c distributorChannels) {
 	go pollEngineAlive(client, c)
 
 	//make rpc call to engine
-
 	callEngineEvolve(client, p, c, world)
-
-	//turn := 0
-	//
-	//// TODO: Execute all turns of the Game of Life.
-	//for turn < p.Turns {
-	//	world = calculateNextState(world)
-	//	turn += 1
-	//
-	//	c.events <- TurnComplete{turn}
-	//}
-	//// TODO: Report the final state using FinalTurnCompleteEvent.
-	//c.events <- FinalTurnComplete{p.Turns, calculateAliveCells(world)}
 
 	// Make sure that the Io has finished any output before exiting.
 	c.ioCommand <- ioCheckIdle
 	<-c.ioIdle
-	//c.events <- StateChange{turn, Quitting}
+	c.events <- StateChange{p.Turns, Quitting}
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)
 
