@@ -19,6 +19,9 @@ type distributorChannels struct {
 
 var worldLock sync.Mutex
 
+//var pause sync.Mutex
+//var isPaused false
+
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels) {
 	width := p.ImageWidth
@@ -56,11 +59,9 @@ func distributor(p Params, c distributorChannels) {
 				case 'q':
 					// generate pgm file with current state and quit
 					qDone <- true
-					return
 
 				case 'p':
-					// pause the game and print "Continuing"
-					c.events <- StateChange{turn, Paused}
+
 				}
 				worldLock.Unlock()
 			}
@@ -89,6 +90,7 @@ gameLoop:
 		select {
 		case <-qDone:
 			break gameLoop
+
 		default:
 			worldLock.Lock()
 			turn += 1
