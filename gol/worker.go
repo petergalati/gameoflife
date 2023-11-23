@@ -7,7 +7,6 @@ import (
 func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, complete chan int, events chan<- Event, turn int) {
 
 	//split world
-	//fmt.Println("start: ", startY, " end: ", endY)
 	segment := make([][]byte, endY-startY)
 	for y := range segment {
 		segment[y] = make([]byte, endX)
@@ -16,7 +15,6 @@ func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, 
 	}
 
 	//calc next state
-
 	for y := range segment {
 		for x := range segment[y] {
 			//count neighbours

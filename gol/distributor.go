@@ -42,6 +42,7 @@ func distributor(p Params, c distributorChannels) {
 	turn := 0
 
 	// goroutine to handle key presses
+	qDone := make(chan bool) // channel to signal q has been pressed to quit
 	go func() {
 		for {
 			select {
@@ -54,10 +55,8 @@ func distributor(p Params, c distributorChannels) {
 
 				case 'q':
 					// generate pgm file with current state and quit
-					generatePgmFile(c, world, height, width, turn)
-					c.events <- StateChange{turn, Quitting}
-
-					close(c.events)
+					qDone <- true
+					return
 
 				case 'p':
 					// pause the game and print "Continuing"
@@ -85,15 +84,20 @@ func distributor(p Params, c distributorChannels) {
 
 	// Execute all turns of the Game of Life.
 	flipCellsEvent(turn, world, c)
+gameLoop:
 	for turn < p.Turns {
-		worldLock.Lock()
-		turn += 1
-		world = workerBoss(p, world, c.events, turn)
-		worldLock.Unlock()
-		c.events <- TurnComplete{turn}
-		//flipCellsEvent(turn, world, c)
-
+		select {
+		case <-qDone:
+			break gameLoop
+		default:
+			worldLock.Lock()
+			turn += 1
+			world = workerBoss(p, world, c.events, turn)
+			worldLock.Unlock()
+			c.events <- TurnComplete{turn}
+		}
 	}
+
 	ticker.Stop()
 	done <- true
 
