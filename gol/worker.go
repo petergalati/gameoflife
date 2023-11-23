@@ -27,13 +27,16 @@ func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, 
 					out <- util.Cell{X: x, Y: y + startY}
 				} else {
 					//alive -> dead
+
 					events <- CellFlipped{turn, util.Cell{X: x, Y: y + startY}}
+
 				}
 			} else {
 				if neighbourCount == 3 {
 					//return a cell when its alive
 					out <- util.Cell{X: x, Y: y + startY}
 					//dead ->alive
+
 					events <- CellFlipped{turn, util.Cell{X: x, Y: y + startY}}
 				}
 			}

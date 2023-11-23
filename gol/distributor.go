@@ -2,6 +2,7 @@ package gol
 
 import (
 	"fmt"
+	"sync"
 	"time"
 	"uk.ac.bris.cs/gameoflife/util"
 )
@@ -15,6 +16,8 @@ type distributorChannels struct {
 	ioInput    <-chan uint8
 	keyPresses <-chan rune
 }
+
+var worldLock sync.Mutex
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels) {
@@ -43,6 +46,7 @@ func distributor(p Params, c distributorChannels) {
 		for {
 			select {
 			case key := <-c.keyPresses:
+				worldLock.Lock()
 				switch key {
 				case 's':
 					// generate pgm file with current state
@@ -52,13 +56,14 @@ func distributor(p Params, c distributorChannels) {
 					// generate pgm file with current state and quit
 					generatePgmFile(c, world, height, width, turn)
 					c.events <- StateChange{turn, Quitting}
+
 					close(c.events)
 
 				case 'p':
 					// pause the game and print "Continuing"
 					c.events <- StateChange{turn, Paused}
 				}
-
+				worldLock.Unlock()
 			}
 		}
 	}()
@@ -71,7 +76,9 @@ func distributor(p Params, c distributorChannels) {
 			case <-done:
 				return
 			case <-ticker.C:
+				worldLock.Lock()
 				c.events <- AliveCellsCount{turn, len(calculateAliveCells(world))}
+				worldLock.Unlock()
 			}
 		}
 	}()
@@ -79,9 +86,10 @@ func distributor(p Params, c distributorChannels) {
 	// Execute all turns of the Game of Life.
 	flipCellsEvent(turn, world, c)
 	for turn < p.Turns {
-
+		worldLock.Lock()
 		turn += 1
 		world = workerBoss(p, world, c.events, turn)
+		worldLock.Unlock()
 		c.events <- TurnComplete{turn}
 		//flipCellsEvent(turn, world, c)
 
