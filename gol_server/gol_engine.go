@@ -22,6 +22,8 @@ func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (er
 	turn := 0
 	for turn < req.Turns {
 		world = calculateNextState(world)
+		//fmt.Println("world is", world)
+
 		e.mu.Lock() // lock the engine
 
 		turn += 1
@@ -31,6 +33,7 @@ func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (er
 	}
 	res.CurrentTurn = turn
 	res.AliveCells = calculateAliveCells(world)
+	res.World = world
 	return
 }
 

@@ -10,4 +10,5 @@ type EngineRequest struct {
 type EngineResponse struct {
 	AliveCells  []util.Cell
 	CurrentTurn int
+	World       [][]byte
 }

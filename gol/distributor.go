@@ -4,9 +4,13 @@ package gol
 import (
 	"fmt"
 	"net/rpc"
+	"sync"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
+	"uk.ac.bris.cs/gameoflife/util"
 )
+
+var worldLock sync.Mutex
 
 type distributorChannels struct {
 	events     chan<- Event
@@ -17,22 +21,37 @@ type distributorChannels struct {
 	ioInput    <-chan uint8
 }
 
-func callEngineEvolve(client *rpc.Client, p Params, c distributorChannels, world [][]byte) {
+type endStateInfo struct {
+	turns int
+	cells []util.Cell
+	p     Params
+	c     distributorChannels
+	world [][]byte
+}
+
+func callEngineEvolve(client *rpc.Client, p Params, c distributorChannels, world [][]byte, endStateChan chan<- endStateInfo) {
 	request := stubs.EngineRequest{World: world, Turns: p.Turns}
 	response := new(stubs.EngineResponse)
 	client.Call("Engine.Evolve", request, response)
-	c.events <- FinalTurnComplete{p.Turns, response.AliveCells}
+	endStateChan <- endStateInfo{p.Turns, response.AliveCells, p, c, response.World}
 }
 
-func pollEngineAlive(client *rpc.Client, c distributorChannels) {
+func pollEngineAlive(client *rpc.Client, c distributorChannels, done <-chan bool) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		request := stubs.EngineRequest{}
-		response := new(stubs.EngineResponse)
-		client.Call("Engine.Alive", request, response)
-		c.events <- AliveCellsCount{response.CurrentTurn, len(response.AliveCells)}
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			request := stubs.EngineRequest{}
+			response := new(stubs.EngineResponse)
+			client.Call("Engine.Alive", request, response)
+			worldLock.Lock()
+			c.events <- AliveCellsCount{response.CurrentTurn, len(response.AliveCells)}
+			worldLock.Unlock()
+		}
 	}
 
 }
@@ -60,16 +79,39 @@ func distributor(p Params, c distributorChannels) {
 	client, _ := rpc.Dial("tcp", "localhost:8030")
 
 	// ticker goroutine to make rpc call to engine to poll alive cells every 2 seconds
-	go pollEngineAlive(client, c)
+	done := make(chan bool)
+	defer close(done)
+	go pollEngineAlive(client, c, done)
 
-	//make rpc call to engine
-	callEngineEvolve(client, p, c, world)
+	// make rpc call to engine
+	endStateChan := make(chan endStateInfo)
+	go callEngineEvolve(client, p, c, world, endStateChan)
+	endState := <-endStateChan
+
+	// stop ticker goroutine
+	done <- true
+
+	// generate pgm file
+	generatePgmFile(endState.c, endState.world, endState.p.ImageHeight, endState.p.ImageWidth, endState.p.Turns)
 
 	// Make sure that the Io has finished any output before exiting.
 	c.ioCommand <- ioCheckIdle
 	<-c.ioIdle
+
+	c.events <- FinalTurnComplete{endState.turns, endState.cells}
 	c.events <- StateChange{p.Turns, Quitting}
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)
+
+}
+
+func generatePgmFile(c distributorChannels, world [][]byte, height int, width int, turn int) {
+	//Writing to the output file
+	c.ioCommand <- ioOutput
+	c.ioFilename <- fmt.Sprint(height, "x", width, "x", turn)
+	for i := 0; i < width*height; i++ {
+		//essentially creating a slice of all the bytes
+		c.ioOutput <- world[i/height][i%height]
+	}
 
 }
