@@ -113,12 +113,14 @@ gameLoop:
 	//Writing to the output file
 	generatePgmFile(c, world, height, width, turn)
 
-	// Report the final state using FinalTurnCompleteEvent.
-	c.events <- FinalTurnComplete{p.Turns, calculateAliveCells(world)}
 	// Make sure that the Io has finished any output before exiting.
 	c.ioCommand <- ioCheckIdle
 	<-c.ioIdle
+
+	// Report the final state using FinalTurnCompleteEvent.
+	c.events <- FinalTurnComplete{p.Turns, calculateAliveCells(world)}
 	c.events <- StateChange{turn, Quitting}
+
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)
 
