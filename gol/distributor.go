@@ -19,13 +19,11 @@ type distributorChannels struct {
 
 var worldLock sync.Mutex
 
-//var pause sync.Mutex
-//var isPaused false
-
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels) {
 	width := p.ImageWidth
 	height := p.ImageHeight
+	isPaused := false
 
 	// Create a 2D slice to store the world.
 	world := make([][]byte, height)
@@ -50,20 +48,29 @@ func distributor(p Params, c distributorChannels) {
 		for {
 			select {
 			case key := <-c.keyPresses:
-				worldLock.Lock()
+				//worldLock.Lock()
 				switch key {
 				case 's':
 					// generate pgm file with current state
+					worldLock.Lock()
 					generatePgmFile(c, world, height, width, turn)
-
+					worldLock.Unlock()
 				case 'q':
 					// generate pgm file with current state and quit
 					qDone <- true
+					return
 
 				case 'p':
+					// pause execution
+					isPaused = !isPaused
+					if isPaused {
+						worldLock.Lock()
+					} else {
+						worldLock.Unlock()
+					}
 
 				}
-				worldLock.Unlock()
+				//worldLock.Unlock()
 			}
 		}
 	}()
@@ -90,11 +97,11 @@ gameLoop:
 		select {
 		case <-qDone:
 			break gameLoop
-
 		default:
+			temp := workerBoss(p, world, c.events, turn+1)
 			worldLock.Lock()
 			turn += 1
-			world = workerBoss(p, world, c.events, turn)
+			world = temp
 			worldLock.Unlock()
 			c.events <- TurnComplete{turn}
 		}
