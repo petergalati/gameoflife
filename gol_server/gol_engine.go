@@ -17,6 +17,7 @@ type Engine struct {
 	currentTurn  int
 	pause        chan bool
 	disconnect   chan bool
+	shutdown     chan bool
 }
 
 func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
@@ -84,6 +85,15 @@ func (e *Engine) Stop(req *stubs.EngineRequest, res *stubs.EngineResponse) (err 
 	//e.mu.Lock()         // lock the engine
 	//defer e.mu.Unlock() // unlock the engine once the function is done
 	e.disconnect <- true
+	return
+}
+
+func (e *Engine) Shutdown(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
+	e.disconnect <- true
+
+	res.World = e.currentWorld
+	res.CurrentTurn = e.currentTurn
+	e.shutdown <- true
 	return
 }
 
@@ -164,8 +174,18 @@ func calculateAliveCells(world [][]byte) []util.Cell {
 func main() {
 	pAddr := flag.String("port", "8030", "Port to listen on")
 	flag.Parse()
-	rpc.Register(&Engine{disconnect: make(chan bool)})
+	e := &Engine{
+		disconnect: make(chan bool),
+		shutdown:   make(chan bool),
+	}
+	rpc.Register(e)
 	listener, _ := net.Listen("tcp", ":"+*pAddr)
 	defer listener.Close()
+
+	go func() {
+		<-e.shutdown
+		listener.Close()
+	}()
+
 	rpc.Accept(listener)
 }
