@@ -66,6 +66,12 @@ func getEnginePgm(client *rpc.Client, c distributorChannels) {
 	worldLock.Unlock()
 }
 
+func engineDisconnect(client *rpc.Client, c distributorChannels) {
+	request := stubs.EngineRequest{}
+	response := new(stubs.EngineResponse)
+	client.Call("Engine.Stop", request, response)
+}
+
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels) {
 	width := p.ImageWidth
@@ -100,8 +106,9 @@ func distributor(p Params, c distributorChannels) {
 					getEnginePgm(client, c)
 
 				case 'q':
-					// close client
-					//client.Close()
+					// close client gracefully
+					engineDisconnect(client, c)
+					close(c.events)
 
 				case 'p':
 					// pause execution

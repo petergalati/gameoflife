@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"net/rpc"
 	"sync"
@@ -15,21 +16,45 @@ type Engine struct {
 	currentWorld [][]byte
 	currentTurn  int
 	pause        chan bool
+	disconnect   chan bool
 }
 
 func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
 
 	world := req.World
+	if e.currentWorld != nil {
+		// Initialize currentWorld because it's nil
+		fmt.Println("DHTREAGSFDHREDFN")
+		world = e.currentWorld
+	}
+
 	turn := 0
+	if e.currentTurn != 0 {
+		// Initialize currentWorld because it's nil
+		fmt.Println("BOOOOOOO")
+		turn = e.currentTurn
+	}
+
 	for turn < req.Turns {
-		world = calculateNextState(world)
 
-		e.mu.Lock() // lock the engine
+		select {
+		case <-e.disconnect:
+			res.CurrentTurn = turn
+			res.AliveCells = calculateAliveCells(world)
+			res.World = world
+			return
+		default:
+			world = calculateNextState(world)
 
-		turn += 1
-		e.currentWorld = world
-		e.currentTurn = turn
-		e.mu.Unlock() // unlock the engine
+			e.mu.Lock() // lock the engine
+
+			turn += 1
+			e.currentWorld = world
+			e.currentTurn = turn
+			e.mu.Unlock() // unlock the engine
+
+		}
+
 	}
 	res.CurrentTurn = turn
 	res.AliveCells = calculateAliveCells(world)
@@ -52,6 +77,13 @@ func (e *Engine) State(req *stubs.EngineRequest, res *stubs.EngineResponse) (err
 
 	res.World = e.currentWorld
 	res.CurrentTurn = e.currentTurn
+	return
+}
+
+func (e *Engine) Stop(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
+	//e.mu.Lock()         // lock the engine
+	//defer e.mu.Unlock() // unlock the engine once the function is done
+	e.disconnect <- true
 	return
 }
 
@@ -132,7 +164,7 @@ func calculateAliveCells(world [][]byte) []util.Cell {
 func main() {
 	pAddr := flag.String("port", "8030", "Port to listen on")
 	flag.Parse()
-	rpc.Register(&Engine{})
+	rpc.Register(&Engine{disconnect: make(chan bool)})
 	listener, _ := net.Listen("tcp", ":"+*pAddr)
 	defer listener.Close()
 	rpc.Accept(listener)
