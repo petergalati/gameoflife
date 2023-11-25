@@ -58,7 +58,6 @@ func workerBoss(p Params, world [][]byte, events chan<- Event, turn int) [][]byt
 		endY := (i + 1) * p.ImageHeight / threads
 		go worker(startX, endX, startY, endY, world, workerWorld, workersDone, events, turn)
 	}
-
 	//making new empty world
 	newWorld := make([][]byte, p.ImageHeight)
 	for i := range newWorld {
