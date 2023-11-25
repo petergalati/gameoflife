@@ -76,17 +76,24 @@ func engineShutdown(client *rpc.Client, c distributorChannels) {
 	request := stubs.EngineRequest{}
 	response := new(stubs.EngineResponse)
 	client.Call("Engine.Shutdown", request, response)
-	worldLock.Lock()
-	generatePgmFile(c, response.World, len(response.World), len(response.World[0]), response.CurrentTurn)
-	worldLock.Unlock()
+	//worldLock.Lock()
+	//temp := response.World
+	//fmt.Println("temp", temp)
+	//generatePgmFile(c, temp, len(temp), len(temp), response.CurrentTurn)
+	//worldLock.Unlock()
 
+}
+
+func enginePause(client *rpc.Client, c distributorChannels) {
+	request := stubs.EngineRequest{}
+	response := new(stubs.EngineResponse)
+	client.Call("Engine.Pause", request, response)
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels) {
 	width := p.ImageWidth
 	height := p.ImageHeight
-
 	// TODO: Create a 2D slice to store the world.
 	world := make([][]byte, height)
 	for i := range world {
@@ -121,6 +128,7 @@ func distributor(p Params, c distributorChannels) {
 
 				case 'p':
 					// pause execution
+					enginePause(client, c)
 
 				case 'k':
 					// all components of the distributed system are shut down cleanly + pgm output

@@ -15,7 +15,7 @@ type Engine struct {
 	mu           sync.Mutex
 	currentWorld [][]byte
 	currentTurn  int
-	pause        chan bool
+	pause        bool
 	disconnect   chan bool
 	shutdown     chan bool
 }
@@ -40,6 +40,7 @@ func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (er
 
 		select {
 		case <-e.disconnect:
+			fmt.Println("PENISSS")
 			res.CurrentTurn = turn
 			res.AliveCells = calculateAliveCells(world)
 			res.World = world
@@ -89,12 +90,25 @@ func (e *Engine) Stop(req *stubs.EngineRequest, res *stubs.EngineResponse) (err 
 }
 
 func (e *Engine) Shutdown(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
-	e.disconnect <- true
 
-	res.World = e.currentWorld
-	res.CurrentTurn = e.currentTurn
+	//res.World = e.currentWorld
+	//res.CurrentTurn = e.currentTurn
+
 	e.shutdown <- true
 	return
+}
+
+func (e *Engine) Pause(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
+	// pause execution
+	e.pause = !e.pause
+	if e.pause {
+		e.mu.Lock()
+	} else {
+		e.mu.Unlock()
+	}
+
+	return
+
 }
 
 // gol code from week 1/2
@@ -177,6 +191,7 @@ func main() {
 	e := &Engine{
 		disconnect: make(chan bool),
 		shutdown:   make(chan bool),
+		pause:      false,
 	}
 	rpc.Register(e)
 	listener, _ := net.Listen("tcp", ":"+*pAddr)
