@@ -14,6 +14,7 @@ type Engine struct {
 	mu           sync.Mutex
 	currentWorld [][]byte
 	currentTurn  int
+	pause        chan bool
 }
 
 func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
@@ -22,7 +23,6 @@ func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (er
 	turn := 0
 	for turn < req.Turns {
 		world = calculateNextState(world)
-		//fmt.Println("world is", world)
 
 		e.mu.Lock() // lock the engine
 
@@ -42,6 +42,15 @@ func (e *Engine) Alive(req *stubs.EngineRequest, res *stubs.EngineResponse) (err
 	defer e.mu.Unlock() // unlock the engine once the function is done
 
 	res.AliveCells = calculateAliveCells(e.currentWorld)
+	res.CurrentTurn = e.currentTurn
+	return
+}
+
+func (e *Engine) State(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
+	e.mu.Lock()         // lock the engine
+	defer e.mu.Unlock() // unlock the engine once the function is done
+
+	res.World = e.currentWorld
 	res.CurrentTurn = e.currentTurn
 	return
 }

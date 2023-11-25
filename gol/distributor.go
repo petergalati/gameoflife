@@ -19,6 +19,7 @@ type distributorChannels struct {
 	ioFilename chan<- string
 	ioOutput   chan<- uint8
 	ioInput    <-chan uint8
+	keyPresses <-chan rune
 }
 
 type endStateInfo struct {
@@ -56,6 +57,15 @@ func pollEngineAlive(client *rpc.Client, c distributorChannels, done <-chan bool
 
 }
 
+func getEnginePgm(client *rpc.Client, c distributorChannels) {
+	request := stubs.EngineRequest{}
+	response := new(stubs.EngineResponse)
+	client.Call("Engine.State", request, response)
+	worldLock.Lock()
+	generatePgmFile(c, response.World, len(response.World), len(response.World[0]), response.CurrentTurn)
+	worldLock.Unlock()
+}
+
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels) {
 	width := p.ImageWidth
@@ -77,6 +87,33 @@ func distributor(p Params, c distributorChannels) {
 	}
 
 	client, _ := rpc.Dial("tcp", "localhost:8030")
+
+	// goroutine to handle key presses
+	go func() {
+		for {
+			select {
+			case key := <-c.keyPresses:
+				//worldLock.Lock()
+				switch key {
+				case 's':
+					// generate pgm file with current state
+					getEnginePgm(client, c)
+
+				case 'q':
+					// close client
+					//client.Close()
+
+				case 'p':
+					// pause execution
+
+				case 'k':
+					// all components of the distributed system are shut down cleanly
+
+				}
+				//worldLock.Unlock()
+			}
+		}
+	}()
 
 	// ticker goroutine to make rpc call to engine to poll alive cells every 2 seconds
 	done := make(chan bool)
