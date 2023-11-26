@@ -34,7 +34,7 @@ func callEngineEvolve(client *rpc.Client, p Params, c distributorChannels, world
 	request := stubs.EngineRequest{World: world, Turns: p.Turns}
 	response := new(stubs.EngineResponse)
 	client.Call("Engine.Evolve", request, response)
-	endStateChan <- endStateInfo{p.Turns, response.AliveCells, p, c, response.World}
+	endStateChan <- endStateInfo{response.CurrentTurn, response.AliveCells, p, c, response.World}
 }
 
 func pollEngineAlive(client *rpc.Client, c distributorChannels, done <-chan bool) {
@@ -88,7 +88,8 @@ func engineShutdown(client *rpc.Client, c distributorChannels) {
 func distributor(p Params, c distributorChannels) {
 	width := p.ImageWidth
 	height := p.ImageHeight
-	// TODO: Create a 2D slice to store the world.
+	var toShutdown = false
+	// Create a 2D slice to store the world.
 	world := make([][]byte, height)
 	for i := range world {
 		world[i] = make([]byte, width)
@@ -126,11 +127,8 @@ func distributor(p Params, c distributorChannels) {
 
 				case 'k':
 					// all components of the distributed system are shut down cleanly + pgm output
-					getEnginePgm(client, c)
 					engineDisconnect(client, c)
-					engineShutdown(client, c)
-					close(c.events)
-					return
+					toShutdown = true
 
 				}
 			}
@@ -151,14 +149,20 @@ func distributor(p Params, c distributorChannels) {
 	done <- true
 
 	// generate pgm file
-	generatePgmFile(endState.c, endState.world, endState.p.ImageHeight, endState.p.ImageWidth, endState.p.Turns)
+	generatePgmFile(endState.c, endState.world, endState.p.ImageHeight, endState.p.ImageWidth, endState.turns)
 
 	// Make sure that the Io has finished any output before exiting.
 	c.ioCommand <- ioCheckIdle
 	<-c.ioIdle
 
 	c.events <- FinalTurnComplete{endState.turns, endState.cells}
-	c.events <- StateChange{p.Turns, Quitting}
+	c.events <- StateChange{endState.turns, Quitting}
+
+	// shutdown engine if 'k' key is pressed
+	if toShutdown {
+		engineShutdown(client, c)
+	}
+
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)
 
