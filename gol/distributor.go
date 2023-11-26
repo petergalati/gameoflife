@@ -72,22 +72,16 @@ func engineDisconnect(client *rpc.Client, c distributorChannels) {
 	client.Call("Engine.Stop", request, response)
 }
 
-func engineShutdown(client *rpc.Client, c distributorChannels) {
-	request := stubs.EngineRequest{}
-	response := new(stubs.EngineResponse)
-	client.Call("Engine.Shutdown", request, response)
-	//worldLock.Lock()
-	//temp := response.World
-	//fmt.Println("temp", temp)
-	//generatePgmFile(c, temp, len(temp), len(temp), response.CurrentTurn)
-	//worldLock.Unlock()
-
-}
-
 func enginePause(client *rpc.Client, c distributorChannels) {
 	request := stubs.EngineRequest{}
 	response := new(stubs.EngineResponse)
 	client.Call("Engine.Pause", request, response)
+}
+
+func engineShutdown(client *rpc.Client, c distributorChannels) {
+	request := stubs.EngineRequest{}
+	response := new(stubs.EngineResponse)
+	client.Call("Engine.Shutdown", request, response)
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -132,8 +126,12 @@ func distributor(p Params, c distributorChannels) {
 
 				case 'k':
 					// all components of the distributed system are shut down cleanly + pgm output
+					getEnginePgm(client, c)
+					engineDisconnect(client, c)
 					engineShutdown(client, c)
 					close(c.events)
+					return
+
 				}
 			}
 		}

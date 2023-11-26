@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net"
 	"net/rpc"
 	"sync"
@@ -25,14 +24,12 @@ func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (er
 	world := req.World
 	if e.currentWorld != nil {
 		// Initialize currentWorld because it's nil
-		fmt.Println("DHTREAGSFDHREDFN")
 		world = e.currentWorld
 	}
 
 	turn := 0
 	if e.currentTurn != 0 {
 		// Initialize currentWorld because it's nil
-		fmt.Println("BOOOOOOO")
 		turn = e.currentTurn
 	}
 
@@ -40,7 +37,6 @@ func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (er
 
 		select {
 		case <-e.disconnect:
-			fmt.Println("PENISSS")
 			res.CurrentTurn = turn
 			res.AliveCells = calculateAliveCells(world)
 			res.World = world
@@ -89,15 +85,6 @@ func (e *Engine) Stop(req *stubs.EngineRequest, res *stubs.EngineResponse) (err 
 	return
 }
 
-func (e *Engine) Shutdown(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
-
-	//res.World = e.currentWorld
-	//res.CurrentTurn = e.currentTurn
-
-	e.shutdown <- true
-	return
-}
-
 func (e *Engine) Pause(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
 	// pause execution
 	e.pause = !e.pause
@@ -109,6 +96,11 @@ func (e *Engine) Pause(req *stubs.EngineRequest, res *stubs.EngineResponse) (err
 
 	return
 
+}
+
+func (e *Engine) Shutdown(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
+	e.shutdown <- true
+	return
 }
 
 // gol code from week 1/2
