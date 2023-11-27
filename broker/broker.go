@@ -43,20 +43,26 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 		slices := make([][][]byte, threads)
 		var aliveCells []util.Cell
 		for i, address := range b.workerAddresses {
+			fmt.Println("turn is ", turn)
+			fmt.Println("turns is ", turns)
 			address := address
 			i := i
 			wg.Add(1)
 			go func() {
+				fmt.Println(b.workerAddresses)
 				fmt.Println(address)
 				defer wg.Done()
 				client, _ := rpc.Dial("tcp", address)
+				defer client.Close()
 				startY := i * len(world) / threads
 				endY := (i + 1) * len(world) / threads
 
 				request := stubs.WorkerRequest{World: world, StartY: startY, EndY: endY}
 				response := new(stubs.WorkerResponse)
-
+				fmt.Println("point 1")
+				fmt.Println("client is", client)
 				client.Call(stubs.EvolveWorker, request, response)
+				fmt.Println("point 2")
 
 				slices[i] = response.Slice
 				aliveCells = append(aliveCells, response.AliveCells...)
@@ -66,16 +72,19 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 		wg.Wait()
 
 		world = combineSlices(slices)
-
+		mu.Lock()
 		currentWorld = world
 		currentTurn = turn
 		currentAlive = aliveCells
+		mu.Unlock()
 
 		turn++
 
 		fmt.Println("nyoh deare")
 
 	}
+
+	fmt.Println("huuuuh")
 
 }
 
@@ -90,6 +99,8 @@ func combineSlices(slices [][][]byte) [][]byte {
 
 func (b *Broker) Evolve(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
 	workerLoop(req.World, req.Turns, b)
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	res.World = currentWorld
 	res.CurrentTurn = currentTurn
 	res.AliveCells = currentAlive
@@ -98,6 +109,8 @@ func (b *Broker) Evolve(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (er
 }
 
 func (b *Broker) Alive(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
+	res.AliveCells = currentAlive
+	res.CurrentTurn = currentTurn
 	return
 }
 

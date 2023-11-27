@@ -148,6 +148,8 @@ func distributor(p Params, c distributorChannels) {
 	// stop ticker goroutine
 	done <- true
 
+	fmt.Println("odd stuff is happening")
+
 	// generate pgm file
 	generatePgmFile(endState.c, endState.world, endState.p.ImageHeight, endState.p.ImageWidth, endState.turns)
 
