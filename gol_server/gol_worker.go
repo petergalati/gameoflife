@@ -19,45 +19,23 @@ type Worker struct {
 	shutdown     chan bool
 }
 
-func (w *Worker) Evolve(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
+func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (err error) {
 
-	world := req.World
-	if w.currentWorld != nil {
-		// Initialize currentWorld because it's nil
-		world = w.currentWorld
+	//startX := 0
+	endX := len(req.World[0])
+	startY := req.StartY
+	endY := req.EndY
+
+	segment := make([][]byte, endY-startY)
+	for y := range segment {
+		segment[y] = make([]byte, endX)
+		copy(segment[y], req.World[y+startY])
 	}
 
-	turn := 0
-	if w.currentTurn != 0 {
-		// Initialize currentWorld because it's nil
-		turn = w.currentTurn
-	}
+	res.Slice = calculateNextState(segment)
 
-	for turn < req.Turns {
-
-		select {
-		case <-w.disconnect:
-			res.CurrentTurn = turn
-			res.AliveCells = calculateAliveCells(world)
-			res.World = world
-			return
-		default:
-			world = calculateNextState(world)
-
-			w.mu.Lock() // lock the engine
-
-			turn += 1
-			w.currentWorld = world
-			w.currentTurn = turn
-			w.mu.Unlock() // unlock the engine
-
-		}
-
-	}
-	res.CurrentTurn = turn
-	res.AliveCells = calculateAliveCells(world)
-	res.World = world
 	return
+
 }
 
 func (w *Worker) Alive(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {

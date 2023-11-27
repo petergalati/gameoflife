@@ -29,7 +29,9 @@ type BrokerResponse struct {
 var EvolveWorker = "Worker.EvolveWorker"
 
 type WorkerRequest struct {
-	Slice [][]byte
+	World  [][]byte
+	StartY int
+	EndY   int
 }
 
 type WorkerResponse struct {
