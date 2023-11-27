@@ -33,7 +33,7 @@ type endStateInfo struct {
 func callEngineEvolve(client *rpc.Client, p Params, c distributorChannels, world [][]byte, endStateChan chan<- endStateInfo) {
 	request := stubs.EngineRequest{World: world, Turns: p.Turns}
 	response := new(stubs.EngineResponse)
-	client.Call("Engine.Evolve", request, response)
+	client.Call(stubs.Evolve, request, response)
 	endStateChan <- endStateInfo{response.CurrentTurn, response.AliveCells, p, c, response.World}
 }
 
@@ -48,7 +48,7 @@ func pollEngineAlive(client *rpc.Client, c distributorChannels, done <-chan bool
 		case <-ticker.C:
 			request := stubs.EngineRequest{}
 			response := new(stubs.EngineResponse)
-			client.Call("Engine.Alive", request, response)
+			client.Call(stubs.Alive, request, response)
 			worldLock.Lock()
 			c.events <- AliveCellsCount{response.CurrentTurn, len(response.AliveCells)}
 			worldLock.Unlock()
@@ -60,7 +60,7 @@ func pollEngineAlive(client *rpc.Client, c distributorChannels, done <-chan bool
 func getEnginePgm(client *rpc.Client, c distributorChannels) {
 	request := stubs.EngineRequest{}
 	response := new(stubs.EngineResponse)
-	client.Call("Engine.State", request, response)
+	client.Call(stubs.State, request, response)
 	worldLock.Lock()
 	generatePgmFile(c, response.World, len(response.World), len(response.World[0]), response.CurrentTurn)
 	worldLock.Unlock()
@@ -69,19 +69,19 @@ func getEnginePgm(client *rpc.Client, c distributorChannels) {
 func engineDisconnect(client *rpc.Client, c distributorChannels) {
 	request := stubs.EngineRequest{}
 	response := new(stubs.EngineResponse)
-	client.Call("Engine.Stop", request, response)
+	client.Call(stubs.Disconnect, request, response)
 }
 
 func enginePause(client *rpc.Client, c distributorChannels) {
 	request := stubs.EngineRequest{}
 	response := new(stubs.EngineResponse)
-	client.Call("Engine.Pause", request, response)
+	client.Call(stubs.Pause, request, response)
 }
 
 func engineShutdown(client *rpc.Client, c distributorChannels) {
 	request := stubs.EngineRequest{}
 	response := new(stubs.EngineResponse)
-	client.Call("Engine.Shutdown", request, response)
+	client.Call(stubs.Shutdown, request, response)
 }
 
 // distributor divides the work between workers and interacts with other goroutines.

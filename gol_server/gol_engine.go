@@ -177,9 +177,23 @@ func calculateAliveCells(world [][]byte) []util.Cell {
 	return celllist
 }
 
+//func registerWithBroker(client *rpc.Client) {
+//	request := stubs.BrokerRequest{}
+//	response := new(stubs.BrokerResponse)
+//	client.Call(stubs.RegisterWorker, request, response)
+//
+//}
+
 func main() {
-	pAddr := flag.String("port", "8030", "Port to listen on")
+	pAddr := flag.String("port", "8000", "Port to listen on")
+	// TODO: allow gol worker to register with broker
+	//brokerAddr := flag.String("broker", "localhost:8030", "Broker address")
 	flag.Parse()
+
+	//// connect to broker and register new gol worker
+	//client, _ := rpc.Dial("tcp", *brokerAddr)
+	//registerWithBroker(client)
+
 	e := &Engine{
 		disconnect: make(chan bool),
 		shutdown:   make(chan bool),
