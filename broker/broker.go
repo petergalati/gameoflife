@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"net/rpc"
 	"sync"
@@ -116,6 +117,8 @@ func (b *Broker) Alive(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err
 }
 
 func (b *Broker) State(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
+	res.World = currentWorld
+	res.CurrentTurn = currentTurn
 	return
 }
 
@@ -137,7 +140,7 @@ func (b *Broker) RegisterWorker(req *stubs.RegisterWorkerRequest, res *stubs.Reg
 	address := req.Ip + ":" + req.Port
 	//client, _ := rpc.Dial("tcp", address)
 	b.workerAddresses = append(b.workerAddresses, address)
-	//fmt.Println("Worker registered at", b.workerAddresses)
+	fmt.Println("Workers registered: ", b.workerAddresses)
 	return
 }
 
