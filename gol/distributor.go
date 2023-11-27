@@ -31,8 +31,8 @@ type endStateInfo struct {
 }
 
 func callEngineEvolve(client *rpc.Client, p Params, c distributorChannels, world [][]byte, endStateChan chan<- endStateInfo) {
-	request := stubs.EngineRequest{World: world, Turns: p.Turns}
-	response := new(stubs.EngineResponse)
+	request := stubs.BrokerRequest{World: world, Turns: p.Turns}
+	response := new(stubs.BrokerResponse)
 	client.Call(stubs.Evolve, request, response)
 	endStateChan <- endStateInfo{response.CurrentTurn, response.AliveCells, p, c, response.World}
 }
@@ -46,8 +46,8 @@ func pollEngineAlive(client *rpc.Client, c distributorChannels, done <-chan bool
 		case <-done:
 			return
 		case <-ticker.C:
-			request := stubs.EngineRequest{}
-			response := new(stubs.EngineResponse)
+			request := stubs.BrokerRequest{}
+			response := new(stubs.BrokerResponse)
 			client.Call(stubs.Alive, request, response)
 			worldLock.Lock()
 			c.events <- AliveCellsCount{response.CurrentTurn, len(response.AliveCells)}
@@ -57,9 +57,9 @@ func pollEngineAlive(client *rpc.Client, c distributorChannels, done <-chan bool
 
 }
 
-func getEnginePgm(client *rpc.Client, c distributorChannels) {
-	request := stubs.EngineRequest{}
-	response := new(stubs.EngineResponse)
+func enginePgm(client *rpc.Client, c distributorChannels) {
+	request := stubs.BrokerRequest{}
+	response := new(stubs.BrokerResponse)
 	client.Call(stubs.State, request, response)
 	worldLock.Lock()
 	generatePgmFile(c, response.World, len(response.World), len(response.World[0]), response.CurrentTurn)
@@ -67,20 +67,20 @@ func getEnginePgm(client *rpc.Client, c distributorChannels) {
 }
 
 func engineDisconnect(client *rpc.Client, c distributorChannels) {
-	request := stubs.EngineRequest{}
-	response := new(stubs.EngineResponse)
+	request := stubs.BrokerRequest{}
+	response := new(stubs.BrokerResponse)
 	client.Call(stubs.Disconnect, request, response)
 }
 
 func enginePause(client *rpc.Client, c distributorChannels) {
-	request := stubs.EngineRequest{}
-	response := new(stubs.EngineResponse)
+	request := stubs.BrokerRequest{}
+	response := new(stubs.BrokerResponse)
 	client.Call(stubs.Pause, request, response)
 }
 
 func engineShutdown(client *rpc.Client, c distributorChannels) {
-	request := stubs.EngineRequest{}
-	response := new(stubs.EngineResponse)
+	request := stubs.BrokerRequest{}
+	response := new(stubs.BrokerResponse)
 	client.Call(stubs.Shutdown, request, response)
 }
 
@@ -114,7 +114,7 @@ func distributor(p Params, c distributorChannels) {
 				switch key {
 				case 's':
 					// generate pgm file with current state
-					getEnginePgm(client, c)
+					enginePgm(client, c)
 
 				case 'q':
 					// close client gracefully

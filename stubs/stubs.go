@@ -1,6 +1,8 @@
 package stubs
 
-import "uk.ac.bris.cs/gameoflife/util"
+import (
+	"uk.ac.bris.cs/gameoflife/util"
+)
 
 // Distributor to Broker
 
@@ -11,12 +13,12 @@ var Disconnect = "Broker.Disconnect"
 var Pause = "Broker.Pause"
 var Shutdown = "Broker.Shutdown"
 
-type EngineRequest struct {
+type BrokerRequest struct {
 	World [][]byte
 	Turns int
 }
 
-type EngineResponse struct {
+type BrokerResponse struct {
 	AliveCells  []util.Cell
 	CurrentTurn int
 	World       [][]byte
@@ -24,24 +26,24 @@ type EngineResponse struct {
 
 // Broker to Gol Worker
 
-var EvolveWorker = "Broker.Evolve"
-var AliveWorker = "Broker.Alive"
-var StateWorker = "Broker.State"
-var DisconnectWorker = "Broker.Disconnect"
-var PauseWorker = "Broker.Pause"
-var ShutdownWorker = "Broker.Shutdown"
-
-//var RegisterWorker = "Broker.RegisterWorker"
+var EvolveWorker = "Worker.EvolveWorker"
 
 type WorkerRequest struct {
-	World [][]byte
-	Turns int
+	Slice [][]byte
 }
 
 type WorkerResponse struct {
-	AliveCells  []util.Cell
-	CurrentTurn int
-	World       [][]byte
+	Slice [][]byte
 }
 
 // Gol Worker to Broker
+
+var RegisterWorker = "Broker.RegisterWorker"
+
+type RegisterWorkerRequest struct {
+	Ip   string
+	Port string
+}
+
+type RegisterWorkerResponse struct {
+}

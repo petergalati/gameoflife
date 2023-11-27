@@ -10,7 +10,7 @@ import (
 	//"uk.ac.bris.cs/gameoflife/util"
 )
 
-type Engine struct {
+type Worker struct {
 	mu           sync.Mutex
 	currentWorld [][]byte
 	currentTurn  int
@@ -19,24 +19,24 @@ type Engine struct {
 	shutdown     chan bool
 }
 
-func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
+func (w *Worker) Evolve(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
 
 	world := req.World
-	if e.currentWorld != nil {
+	if w.currentWorld != nil {
 		// Initialize currentWorld because it's nil
-		world = e.currentWorld
+		world = w.currentWorld
 	}
 
 	turn := 0
-	if e.currentTurn != 0 {
+	if w.currentTurn != 0 {
 		// Initialize currentWorld because it's nil
-		turn = e.currentTurn
+		turn = w.currentTurn
 	}
 
 	for turn < req.Turns {
 
 		select {
-		case <-e.disconnect:
+		case <-w.disconnect:
 			res.CurrentTurn = turn
 			res.AliveCells = calculateAliveCells(world)
 			res.World = world
@@ -44,12 +44,12 @@ func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (er
 		default:
 			world = calculateNextState(world)
 
-			e.mu.Lock() // lock the engine
+			w.mu.Lock() // lock the engine
 
 			turn += 1
-			e.currentWorld = world
-			e.currentTurn = turn
-			e.mu.Unlock() // unlock the engine
+			w.currentWorld = world
+			w.currentTurn = turn
+			w.mu.Unlock() // unlock the engine
 
 		}
 
@@ -60,46 +60,46 @@ func (e *Engine) Evolve(req *stubs.EngineRequest, res *stubs.EngineResponse) (er
 	return
 }
 
-func (e *Engine) Alive(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
-	e.mu.Lock()         // lock the engine
-	defer e.mu.Unlock() // unlock the engine once the function is done
+func (w *Worker) Alive(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
+	w.mu.Lock()         // lock the engine
+	defer w.mu.Unlock() // unlock the engine once the function is done
 
-	res.AliveCells = calculateAliveCells(e.currentWorld)
-	res.CurrentTurn = e.currentTurn
+	res.AliveCells = calculateAliveCells(w.currentWorld)
+	res.CurrentTurn = w.currentTurn
 	return
 }
 
-func (e *Engine) State(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
-	e.mu.Lock()         // lock the engine
-	defer e.mu.Unlock() // unlock the engine once the function is done
+func (w *Worker) State(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
+	w.mu.Lock()         // lock the engine
+	defer w.mu.Unlock() // unlock the engine once the function is done
 
-	res.World = e.currentWorld
-	res.CurrentTurn = e.currentTurn
+	res.World = w.currentWorld
+	res.CurrentTurn = w.currentTurn
 	return
 }
 
-func (e *Engine) Stop(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
-	//e.mu.Lock()         // lock the engine
-	//defer e.mu.Unlock() // unlock the engine once the function is done
-	e.disconnect <- true
+func (w *Worker) Stop(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
+	//w.mu.Lock()         // lock the engine
+	//defer w.mu.Unlock() // unlock the engine once the function is done
+	w.disconnect <- true
 	return
 }
 
-func (e *Engine) Pause(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
+func (w *Worker) Pause(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
 	// pause execution
-	e.pause = !e.pause
-	if e.pause {
-		e.mu.Lock()
+	w.pause = !w.pause
+	if w.pause {
+		w.mu.Lock()
 	} else {
-		e.mu.Unlock()
+		w.mu.Unlock()
 	}
 
 	return
 
 }
 
-func (e *Engine) Shutdown(req *stubs.EngineRequest, res *stubs.EngineResponse) (err error) {
-	e.shutdown <- true
+func (w *Worker) Shutdown(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
+	w.shutdown <- true
 	return
 }
 
@@ -177,34 +177,35 @@ func calculateAliveCells(world [][]byte) []util.Cell {
 	return celllist
 }
 
-//func registerWithBroker(client *rpc.Client) {
-//	request := stubs.BrokerRequest{}
-//	response := new(stubs.BrokerResponse)
-//	client.Call(stubs.RegisterWorker, request, response)
-//
-//}
+func registerWithBroker(client *rpc.Client, ip string, port string) {
+	request := stubs.RegisterWorkerRequest{}
+	response := new(stubs.RegisterWorkerResponse)
+	client.Call(stubs.RegisterWorker, request, response)
+
+}
 
 func main() {
 	pAddr := flag.String("port", "8000", "Port to listen on")
 	// TODO: allow gol worker to register with broker
-	//brokerAddr := flag.String("broker", "localhost:8030", "Broker address")
+	brokerAddr := flag.String("broker", "localhost:8030", "Broker address")
 	flag.Parse()
 
-	//// connect to broker and register new gol worker
-	//client, _ := rpc.Dial("tcp", *brokerAddr)
-	//registerWithBroker(client)
+	// connect to broker and register new gol worker
+	client, _ := rpc.Dial("tcp", *brokerAddr)
+	defer client.Close()
+	registerWithBroker(client, "localhost", *pAddr)
 
-	e := &Engine{
+	w := &Worker{
 		disconnect: make(chan bool),
 		shutdown:   make(chan bool),
 		pause:      false,
 	}
-	rpc.Register(e)
+	rpc.Register(w)
 	listener, _ := net.Listen("tcp", ":"+*pAddr)
 	defer listener.Close()
 
 	go func() {
-		<-e.shutdown
+		<-w.shutdown
 		listener.Close()
 	}()
 
