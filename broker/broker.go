@@ -106,8 +106,6 @@ func (b *Broker) Shutdown(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (
 	return
 }
 
-// TODO: allow workers to register with the broker
-
 func (b *Broker) RegisterWorker(req *stubs.RegisterWorkerRequest, res *stubs.RegisterWorkerResponse) (err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
