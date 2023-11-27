@@ -26,7 +26,7 @@ type BrokerResponse struct {
 
 // Broker to Gol Worker
 
-var EvolveWorker = "Worker.EvolveWorker"
+var EvolveWorker = "Worker.Evolve"
 
 type WorkerRequest struct {
 	World  [][]byte
@@ -35,7 +35,8 @@ type WorkerRequest struct {
 }
 
 type WorkerResponse struct {
-	Slice [][]byte
+	Slice      [][]byte
+	AliveCells []util.Cell
 }
 
 // Gol Worker to Broker

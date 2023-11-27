@@ -33,6 +33,7 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 	}
 
 	res.Slice = calculateNextState(segment)
+	res.AliveCells = calculateAliveCells(res.Slice)
 
 	return
 
@@ -156,7 +157,7 @@ func calculateAliveCells(world [][]byte) []util.Cell {
 }
 
 func registerWithBroker(client *rpc.Client, ip string, port string) {
-	request := stubs.RegisterWorkerRequest{}
+	request := stubs.RegisterWorkerRequest{ip, port}
 	response := new(stubs.RegisterWorkerResponse)
 	client.Call(stubs.RegisterWorker, request, response)
 

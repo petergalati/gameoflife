@@ -2,23 +2,26 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"net/rpc"
 	"sync"
 	"uk.ac.bris.cs/gameoflife/stubs"
+	"uk.ac.bris.cs/gameoflife/util"
 )
 
 var (
 	mu           sync.Mutex
 	currentWorld [][]byte
 	currentTurn  int
+	currentAlive []util.Cell
 	pause        bool
 	disconnect   chan bool
 	shutdown     chan bool
 )
 
 type Broker struct {
-	workers         map[string]*rpc.Client
+	workers         map[string]struct{}
 	workerAddresses []string
 	mu              sync.Mutex
 }
@@ -34,17 +37,19 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 		// Initialize currentWorld because it's nil
 		turn = currentTurn
 	}
-	threads := len(b.workers)
+	threads := len(b.workerAddresses)
 	for turn < turns {
 		var wg sync.WaitGroup
 		slices := make([][][]byte, threads)
+		var aliveCells []util.Cell
 		for i, address := range b.workerAddresses {
 			address := address
 			i := i
 			wg.Add(1)
 			go func() {
+				fmt.Println(address)
 				defer wg.Done()
-				client := b.workers[address]
+				client, _ := rpc.Dial("tcp", address)
 				startY := i * len(world) / threads
 				endY := (i + 1) * len(world) / threads
 
@@ -54,6 +59,7 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 				client.Call(stubs.EvolveWorker, request, response)
 
 				slices[i] = response.Slice
+				aliveCells = append(aliveCells, response.AliveCells...)
 			}()
 
 		}
@@ -63,8 +69,11 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 
 		currentWorld = world
 		currentTurn = turn
+		currentAlive = aliveCells
 
 		turn++
+
+		fmt.Println("nyoh deare")
 
 	}
 
@@ -83,6 +92,8 @@ func (b *Broker) Evolve(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (er
 	workerLoop(req.World, req.Turns, b)
 	res.World = currentWorld
 	res.CurrentTurn = currentTurn
+	res.AliveCells = currentAlive
+	fmt.Println("oh dear")
 	return
 }
 
@@ -110,18 +121,16 @@ func (b *Broker) RegisterWorker(req *stubs.RegisterWorkerRequest, res *stubs.Reg
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	address := req.Ip + ":" + req.Port
-	client, _ := rpc.Dial("tcp", address)
-	b.workers[address] = client
+	//client, _ := rpc.Dial("tcp", address)
 	b.workerAddresses = append(b.workerAddresses, address)
+	fmt.Println("Worker registered at", b.workerAddresses)
 	return
 }
 
 func main() {
 	pAddr := flag.String("port", ":8030", "Port to listen on")
 	flag.Parse()
-	rpc.Register(&Broker{
-		workers: make(map[string]*rpc.Client),
-	})
+	rpc.Register(&Broker{})
 	listener, _ := net.Listen("tcp", *pAddr)
 	defer listener.Close()
 	rpc.Accept(listener)
