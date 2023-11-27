@@ -6,36 +6,55 @@ import (
 
 func worker(startX, endX, startY, endY int, world [][]byte, out chan util.Cell, complete chan int, events chan<- Event, turn int) {
 
-	//split world
-	segment := make([][]byte, endY-startY)
-	for y := range segment {
-		segment[y] = make([]byte, endX)
-		copy(segment[y], world[y+startY])
+	//split world and including boundaries
+	segment := make([][]byte, endY-startY+2)
+	//if starting segment and establishing first segment row
+	if startY == 0 {
+		segment[0] = make([]byte, endX)
+		copy(segment[0], world[len(world)-1])
+	} else {
+		segment[0] = make([]byte, endX)
+		copy(segment[0], world[startY-1])
+	}
 
+	//if ending segment and establishing last segment row
+	if endY == len(world) {
+		segment[len(segment)-1] = make([]byte, endX)
+		copy(segment[len(segment)-1], world[0])
+	} else {
+		segment[len(segment)-1] = make([]byte, endX)
+		copy(segment[len(segment)-1], world[endY])
+	}
+
+	//establishing all other segment rows
+	for y := 1; y < len(segment)-1; y++ {
+		segment[y] = make([]byte, endX)
+		copy(segment[y], world[y+startY-1])
 	}
 
 	//calc next state
-	for y := range segment {
-		for x := range segment[y] {
+	//not including boundary in the for loop
+	for y := 1; y < len(segment)-1; y++ {
+		for x := 0; x < len(segment[y]); x++ {
 			//count neighbours
-			neighbourCount := checkNeighbours(world, y+startY, x)
+			neighbourCount := checkNeighbours(segment, y, x)
 			if segment[y][x] == 255 {
 				if !(neighbourCount < 2 || neighbourCount > 3) {
 					//return a cell when its alive
-					out <- util.Cell{X: x, Y: y + startY}
+					out <- util.Cell{X: x, Y: y + startY - 1}
 				} else {
 					//alive -> dead
 
-					events <- CellFlipped{turn, util.Cell{X: x, Y: y + startY}}
+					events <- CellFlipped{turn, util.Cell{X: x, Y: y + startY - 1}}
 
 				}
 			} else {
 				if neighbourCount == 3 {
 					//return a cell when its alive
-					out <- util.Cell{X: x, Y: y + startY}
+					out <- util.Cell{X: x, Y: y + startY - 1}
 					//dead ->alive
 
-					events <- CellFlipped{turn, util.Cell{X: x, Y: y + startY}}
+					events <- CellFlipped{turn, util.Cell{X: x, Y: y + startY - 1}}
 				}
 			}
 		}

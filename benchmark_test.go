@@ -7,9 +7,8 @@ import (
 	"uk.ac.bris.cs/gameoflife/gol"
 )
 
-const benchLength = 10000
-
 func BenchmarkGol(b *testing.B) {
+	benchLength := 1000
 	for threads := 1; threads <= 16; threads++ {
 		os.Stdout = nil // Disable all program output apart from benchmark results
 		p := gol.Params{

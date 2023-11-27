@@ -126,30 +126,24 @@ gameLoop:
 
 }
 
-func checkNeighbours(world [][]byte, r int, c int) int {
+func checkNeighbours(seg [][]byte, r int, c int) int {
 	neighbourCount := 0
 
-	rows := len(world)
-	columns := len(world[0])
+	columns := len(seg[0])
 
 	for i := r - 1; i <= r+1; i++ {
 		for j := c - 1; j <= c+1; j++ {
 			iCheck := i
 			jCheck := j
-			if iCheck < 0 {
-				iCheck = rows - 1
-			}
 			if jCheck < 0 {
 				jCheck = columns - 1
 			}
-			if iCheck >= rows {
-				iCheck = 0
-			}
+
 			if jCheck >= columns {
 				jCheck = 0
 			}
 
-			if world[iCheck][jCheck] == 255 {
+			if seg[iCheck][jCheck] == 255 {
 				if i != r || j != c { // same as !( i == r && j == c)
 					neighbourCount++
 				}

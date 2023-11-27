@@ -3,14 +3,16 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/pkg/profile"
+	_ "github.com/pkg/profile"
 	"runtime"
-
 	"uk.ac.bris.cs/gameoflife/gol"
 	"uk.ac.bris.cs/gameoflife/sdl"
 )
 
 // main is the function called when starting Game of Life with 'go run .'
 func main() {
+	defer profile.Start(profile.CPUProfile, profile.ProfilePath(".")).Stop()
 	runtime.LockOSThread()
 	var params gol.Params
 

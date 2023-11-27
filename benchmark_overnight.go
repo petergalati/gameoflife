@@ -9,7 +9,7 @@ import (
 
 const benchLength = 1000
 
-func BenchmarkGol(b *testing.B) {
+func BenchmarkOvernight(b *testing.B) {
 	sizes := [6]int{16, 64, 128, 256, 512, 5120}
 	for i := range sizes {
 		os.Stdout = nil // Disable all program output apart from benchmark results
