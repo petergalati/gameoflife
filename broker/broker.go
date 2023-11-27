@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net"
 	"net/rpc"
 	"sync"
@@ -43,14 +42,14 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 		slices := make([][][]byte, threads)
 		var aliveCells []util.Cell
 		for i, address := range b.workerAddresses {
-			fmt.Println("turn is ", turn)
-			fmt.Println("turns is ", turns)
+			//fmt.Println("turn is ", turn)
+			//fmt.Println("turns is ", turns)
 			address := address
 			i := i
 			wg.Add(1)
 			go func() {
-				fmt.Println(b.workerAddresses)
-				fmt.Println(address)
+				//fmt.Println(b.workerAddresses)
+				//fmt.Println(address)
 				defer wg.Done()
 				client, _ := rpc.Dial("tcp", address)
 				defer client.Close()
@@ -59,13 +58,15 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 
 				request := stubs.WorkerRequest{World: world, StartY: startY, EndY: endY}
 				response := new(stubs.WorkerResponse)
-				fmt.Println("point 1")
-				fmt.Println("client is", client)
+				//fmt.Println("point 1")
+				//fmt.Println("client is", client)
 				client.Call(stubs.EvolveWorker, request, response)
-				fmt.Println("point 2")
+				//fmt.Println("point 2")
 
 				slices[i] = response.Slice
+				mu.Lock()
 				aliveCells = append(aliveCells, response.AliveCells...)
+				mu.Unlock()
 			}()
 
 		}
@@ -80,11 +81,11 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 
 		turn++
 
-		fmt.Println("nyoh deare")
+		//fmt.Println("nyoh deare")
 
 	}
 
-	fmt.Println("huuuuh")
+	//fmt.Println("huuuuh")
 
 }
 
@@ -104,7 +105,7 @@ func (b *Broker) Evolve(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (er
 	res.World = currentWorld
 	res.CurrentTurn = currentTurn
 	res.AliveCells = currentAlive
-	fmt.Println("oh dear")
+	//fmt.Println("oh dear")
 	return
 }
 
@@ -136,7 +137,7 @@ func (b *Broker) RegisterWorker(req *stubs.RegisterWorkerRequest, res *stubs.Reg
 	address := req.Ip + ":" + req.Port
 	//client, _ := rpc.Dial("tcp", address)
 	b.workerAddresses = append(b.workerAddresses, address)
-	fmt.Println("Worker registered at", b.workerAddresses)
+	//fmt.Println("Worker registered at", b.workerAddresses)
 	return
 }
 
