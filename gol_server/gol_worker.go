@@ -4,24 +4,17 @@ import (
 	"flag"
 	"net"
 	"net/rpc"
-	"sync"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
 	//"uk.ac.bris.cs/gameoflife/util"
 )
 
 type Worker struct {
-	mu           sync.Mutex
-	currentWorld [][]byte
-	currentTurn  int
-	pause        bool
-	disconnect   chan bool
-	shutdown     chan bool
+	shutdown chan bool
 }
 
 func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (err error) {
 
-	//startX := 0
 	endX := len(req.World[0])
 	startY := req.StartY
 	endY := req.EndY
@@ -39,50 +32,11 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 
 }
 
-func (w *Worker) Alive(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
-	w.mu.Lock()         // lock the engine
-	defer w.mu.Unlock() // unlock the engine once the function is done
-
-	res.AliveCells = calculateAliveCells(w.currentWorld)
-	res.CurrentTurn = w.currentTurn
-	return
-}
-
-func (w *Worker) State(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
-	w.mu.Lock()         // lock the engine
-	defer w.mu.Unlock() // unlock the engine once the function is done
-
-	res.World = w.currentWorld
-	res.CurrentTurn = w.currentTurn
-	return
-}
-
-func (w *Worker) Stop(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
-	//w.mu.Lock()         // lock the engine
-	//defer w.mu.Unlock() // unlock the engine once the function is done
-	w.disconnect <- true
-	return
-}
-
-func (w *Worker) Pause(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
-	// pause execution
-	w.pause = !w.pause
-	if w.pause {
-		w.mu.Lock()
-	} else {
-		w.mu.Unlock()
-	}
-
-	return
-
-}
-
-func (w *Worker) Shutdown(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
+func (w *Worker) Shutdown(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (err error) {
 	w.shutdown <- true
 	return
-}
 
-// gol code from week 1/2
+}
 
 func calculateNextState(world [][]byte) [][]byte {
 	nextWorld := make([][]byte, len(world))
@@ -160,12 +114,10 @@ func registerWithBroker(client *rpc.Client, ip string, port string) {
 	request := stubs.RegisterWorkerRequest{ip, port}
 	response := new(stubs.RegisterWorkerResponse)
 	client.Call(stubs.RegisterWorker, request, response)
-
 }
 
 func main() {
 	pAddr := flag.String("port", "8000", "Port to listen on")
-	// TODO: allow gol worker to register with broker
 	brokerAddr := flag.String("broker", "localhost:8030", "Broker address")
 	flag.Parse()
 
@@ -175,9 +127,7 @@ func main() {
 	registerWithBroker(client, "localhost", *pAddr)
 
 	w := &Worker{
-		disconnect: make(chan bool),
-		shutdown:   make(chan bool),
-		pause:      false,
+		shutdown: make(chan bool),
 	}
 	rpc.Register(w)
 	listener, _ := net.Listen("tcp", ":"+*pAddr)

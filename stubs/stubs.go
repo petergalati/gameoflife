@@ -27,6 +27,7 @@ type BrokerResponse struct {
 // Broker to Gol Worker
 
 var EvolveWorker = "Worker.Evolve"
+var ShutdownWorker = "Worker.Shutdown"
 
 type WorkerRequest struct {
 	World  [][]byte

@@ -16,7 +16,6 @@ var (
 	currentTurn  int
 	currentAlive []util.Cell
 	pause        bool
-	shutdown     chan bool
 )
 
 type Broker struct {
@@ -24,6 +23,7 @@ type Broker struct {
 	workerAddresses []string
 	mu              sync.Mutex
 	disconnect      chan bool
+	shutdown        chan bool
 }
 
 func workerLoop(world [][]byte, turns int, b *Broker) {
@@ -135,6 +135,17 @@ func (b *Broker) Pause(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err
 }
 
 func (b *Broker) Shutdown(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
+	// shutdown workers
+	for _, address := range b.workerAddresses {
+		client, _ := rpc.Dial("tcp", address)
+		defer client.Close()
+		request := stubs.WorkerRequest{}
+		response := new(stubs.WorkerResponse)
+		client.Call(stubs.ShutdownWorker, request, response)
+	}
+
+	// shutdown broker
+	b.shutdown <- true
 	return
 }
 
@@ -151,11 +162,20 @@ func (b *Broker) RegisterWorker(req *stubs.RegisterWorkerRequest, res *stubs.Reg
 func main() {
 	pAddr := flag.String("port", ":8030", "Port to listen on")
 	flag.Parse()
-	rpc.Register(&Broker{
+
+	b := &Broker{
 		disconnect: make(chan bool),
-	})
+		shutdown:   make(chan bool),
+	}
+	rpc.Register(b)
 	listener, _ := net.Listen("tcp", *pAddr)
 	defer listener.Close()
+
+	go func() {
+		<-b.shutdown
+		listener.Close()
+	}()
+
 	rpc.Accept(listener)
 
 }
