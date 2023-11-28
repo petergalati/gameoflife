@@ -114,7 +114,9 @@ func calculateAliveCells(world [][]byte) []util.Cell {
 func registerWithBroker(client *rpc.Client, ip string, port string) {
 	request := stubs.RegisterWorkerRequest{ip, port}
 	response := new(stubs.RegisterWorkerResponse)
+	fmt.Println("request is ", request)
 	client.Call(stubs.RegisterWorker, request, response)
+	fmt.Println("response is ", response)
 }
 
 func main() {
