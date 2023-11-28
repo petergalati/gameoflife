@@ -118,7 +118,7 @@ func registerWithBroker(client *rpc.Client, ip string, port string) {
 
 func main() {
 	pAddr := flag.String("port", "8000", "Port to listen on")
-	brokerAddr := flag.String("broker", "localhost:8030", "Broker address")
+	brokerAddr := flag.String("broker", "31.50.4.205:8080", "Broker address")
 	flag.Parse()
 
 	// connect to broker and register new gol worker

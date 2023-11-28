@@ -160,7 +160,7 @@ func (b *Broker) RegisterWorker(req *stubs.RegisterWorkerRequest, res *stubs.Reg
 }
 
 func main() {
-	pAddr := flag.String("port", ":8030", "Port to listen on")
+	pAddr := flag.String("port", ":8080", "Port to listen on")
 	flag.Parse()
 
 	b := &Broker{
