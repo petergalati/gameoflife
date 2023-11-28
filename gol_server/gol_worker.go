@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"net/rpc"
 	"uk.ac.bris.cs/gameoflife/stubs"
@@ -123,6 +124,10 @@ func main() {
 	brokerAddr := flag.String("broker", "31.50.4.205:8080", "Broker address")
 
 	flag.Parse()
+
+	fmt.Println("port is ", *pAddr)
+	fmt.Println("ip is ", *ipAddr)
+	fmt.Println("broker is ", *brokerAddr)
 
 	// connect to broker and register new gol worker
 	client, _ := rpc.Dial("tcp", *brokerAddr)
