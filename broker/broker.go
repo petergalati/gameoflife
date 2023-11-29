@@ -10,34 +10,27 @@ import (
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
-var (
-	mu           sync.Mutex
-	currentWorld [][]byte
-	currentTurn  int
-	currentAlive []util.Cell
-	pause        bool
-)
-
 type Broker struct {
-	workers         map[string]struct{}
 	workerAddresses []string
 	mu              sync.Mutex
 	disconnect      chan bool
 	shutdown        chan bool
+	currentWorld    [][]byte
+	currentTurn     int
+	currentAlive    []util.Cell
+	pause           bool
 }
 
 func workerLoop(world [][]byte, turns int, b *Broker) {
-	if currentWorld != nil {
-		// Initialize currentWorld because it's nil
-		world = currentWorld
+	nextWorld := make([][]byte, len(world))
+	for i := range world {
+		nextWorld[i] = make([]byte, len(world[i]))
+		copy(nextWorld[i], world[i])
 	}
 
 	turn := 0
-	if currentTurn != 0 {
-		// Initialize currentWorld because it's nil
-		turn = currentTurn
-	}
 	threads := len(b.workerAddresses)
+
 	for turn < turns {
 
 		select {
@@ -46,44 +39,64 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 		default:
 			var wg sync.WaitGroup
 			slices := make([][][]byte, threads)
-			var aliveCells []util.Cell
-			for i, address := range b.workerAddresses {
 
-				address := address
-				i := i
+			for i := 0; i < threads; i++ {
+
+				address := b.workerAddresses[i]
+
 				wg.Add(1)
+				i := i
 				go func() {
 					defer wg.Done()
-					client, _ := rpc.Dial("tcp", address)
-					defer client.Close()
-					startY := i * len(world) / threads
-					endY := (i + 1) * len(world) / threads
 
-					request := stubs.WorkerRequest{World: world, StartY: startY, EndY: endY}
+					client, _ := rpc.Dial("tcp", address)
+
+					defer client.Close()
+					startY := i * len(nextWorld) / threads
+					endY := (i + 1) * len(nextWorld) / threads
+
+					request := stubs.WorkerRequest{World: nextWorld, StartY: startY, EndY: endY}
 					response := new(stubs.WorkerResponse)
 					client.Call(stubs.EvolveWorker, request, response)
 
 					slices[i] = response.Slice
-					mu.Lock()
-					aliveCells = append(aliveCells, response.AliveCells...)
-					mu.Unlock()
 				}()
 
 			}
 			wg.Wait()
 
-			world = combineSlices(slices)
-			mu.Lock()
-			currentWorld = world
-			currentTurn = turn
-			currentAlive = aliveCells
-			mu.Unlock()
+			nextWorld = combineSlices(slices)
 
-			turn++
+			// get alive cells
+			client, _ := rpc.Dial("tcp", b.workerAddresses[0])
+			request := stubs.WorkerRequest{World: nextWorld}
+			response := new(stubs.WorkerResponse)
+			client.Call(stubs.AliveWorker, request, response)
+			//
+
+			b.mu.Lock()
+			b.currentAlive = response.AliveCells
+			b.currentWorld = nextWorld
+			b.currentTurn = turn
+			b.mu.Unlock()
+
+			turn += 1
 
 		}
 
 	}
+	// get alive cells
+	client, _ := rpc.Dial("tcp", b.workerAddresses[0])
+	request := stubs.WorkerRequest{World: world}
+	response := new(stubs.WorkerResponse)
+	client.Call(stubs.AliveWorker, request, response)
+	//
+
+	b.mu.Lock()
+	b.currentAlive = response.AliveCells
+	b.currentWorld = world
+	b.currentTurn = turn
+	b.mu.Unlock()
 
 }
 
@@ -100,22 +113,24 @@ func (b *Broker) Evolve(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (er
 	workerLoop(req.World, req.Turns, b)
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	res.World = currentWorld
-	res.CurrentTurn = currentTurn
-	res.AliveCells = currentAlive
-	//fmt.Println("oh dear")
+	res.World = b.currentWorld
+	res.CurrentTurn = b.currentTurn
+	res.AliveCells = b.currentAlive
+
 	return
 }
 
 func (b *Broker) Alive(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
-	res.AliveCells = currentAlive
-	res.CurrentTurn = currentTurn
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	res.AliveCells = b.currentAlive
+	res.CurrentTurn = b.currentTurn
 	return
 }
 
 func (b *Broker) State(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
-	res.World = currentWorld
-	res.CurrentTurn = currentTurn
+	res.World = b.currentWorld
+	res.CurrentTurn = b.currentTurn
 	return
 }
 
@@ -125,11 +140,11 @@ func (b *Broker) Disconnect(req *stubs.BrokerRequest, res *stubs.BrokerResponse)
 }
 
 func (b *Broker) Pause(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
-	pause = !pause
-	if pause {
-		mu.Lock()
+	b.pause = !b.pause
+	if b.pause {
+		b.mu.Lock()
 	} else {
-		mu.Unlock()
+		b.mu.Unlock()
 	}
 	return
 }

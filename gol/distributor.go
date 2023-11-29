@@ -34,6 +34,7 @@ func callEngineEvolve(client *rpc.Client, p Params, c distributorChannels, world
 	request := stubs.BrokerRequest{World: world, Turns: p.Turns}
 	response := new(stubs.BrokerResponse)
 	client.Call(stubs.Evolve, request, response)
+	//fmt.Println(`response is `, response)
 	endStateChan <- endStateInfo{response.CurrentTurn, response.AliveCells, p, c, response.World}
 }
 
@@ -144,11 +145,10 @@ func distributor(p Params, c distributorChannels) {
 	endStateChan := make(chan endStateInfo)
 	go callEngineEvolve(client, p, c, world, endStateChan)
 	endState := <-endStateChan
+	//fmt.Println("endstate is ", endState)
 
 	// stop ticker goroutine
 	done <- true
-
-	fmt.Println("odd stuff is happening")
 
 	// generate pgm file
 	generatePgmFile(endState.c, endState.world, endState.p.ImageHeight, endState.p.ImageWidth, endState.turns)

@@ -28,6 +28,7 @@ type BrokerResponse struct {
 
 var EvolveWorker = "Worker.Evolve"
 var ShutdownWorker = "Worker.Shutdown"
+var AliveWorker = "Worker.Alive"
 
 type WorkerRequest struct {
 	World  [][]byte

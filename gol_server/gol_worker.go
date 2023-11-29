@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"net/rpc"
 	"uk.ac.bris.cs/gameoflife/stubs"
@@ -24,9 +25,9 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 		segment[y] = make([]byte, endX)
 		copy(segment[y], req.World[y+startY])
 	}
-
-	res.Slice = calculateNextState(segment)
-	res.AliveCells = calculateAliveCells(res.Slice)
+	segment = calculateNextState(segment)
+	res.Slice = segment
+	res.AliveCells = calculateAliveCells(segment)
 
 	return
 
@@ -36,6 +37,12 @@ func (w *Worker) Shutdown(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (
 	w.shutdown <- true
 	return
 
+}
+
+func (w *Worker) Alive(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (err error) {
+	res.AliveCells = calculateAliveCells(req.World)
+	fmt.Println("alive cells: ", res.AliveCells)
+	return
 }
 
 func calculateNextState(world [][]byte) [][]byte {
