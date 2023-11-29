@@ -10,33 +10,33 @@ import (
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
-var (
-	mu           sync.Mutex
-	currentWorld [][]byte
-	currentTurn  int
-	currentAlive []util.Cell
-	pause        bool
-)
-
 type Broker struct {
-	workers         map[string]struct{}
 	workerAddresses []string
 	mu              sync.Mutex
 	disconnect      chan bool
 	shutdown        chan bool
+	currentWorld    [][]byte
+	currentTurn     int
+	currentAlive    []util.Cell
+	pause           bool
 }
 
 func workerLoop(world [][]byte, turns int, b *Broker) {
-	if currentWorld != nil {
-		// Initialize currentWorld because it's nil
-		world = currentWorld
-	}
+
+	//if currentWorld != nil {
+	//	// Initialize currentWorld because it's nil
+	//	world = currentWorld
+	//}
 
 	turn := 0
-	if currentTurn != 0 {
-		// Initialize currentWorld because it's nil
-		turn = currentTurn
-	}
+
+	b.currentWorld = world
+	b.currentTurn = turn
+	b.currentAlive = calculateAliveCells(world)
+	//if b.currentTurn != 0 {
+	//	// Initialize currentWorld because it's nil
+	//	turn = b.currentTurn
+	//}
 	threads := len(b.workerAddresses)
 	for turn < turns {
 
@@ -64,26 +64,27 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 					client.Call(stubs.EvolveWorker, request, response)
 
 					slices[i] = response.Slice
-					mu.Lock()
+					b.mu.Lock()
 					aliveCells = append(aliveCells, response.AliveCells...)
-					mu.Unlock()
+					b.mu.Unlock()
 				}()
 
 			}
 			wg.Wait()
 
 			world = combineSlices(slices)
-			mu.Lock()
-			currentWorld = world
-			currentTurn = turn
-			currentAlive = aliveCells
-			mu.Unlock()
+			b.mu.Lock()
+			b.currentWorld = world
+			b.currentTurn = turn
+			b.currentAlive = aliveCells
+			b.mu.Unlock()
 
 			turn++
 
 		}
 
 	}
+	return
 
 }
 
@@ -100,22 +101,22 @@ func (b *Broker) Evolve(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (er
 	workerLoop(req.World, req.Turns, b)
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	res.World = currentWorld
-	res.CurrentTurn = currentTurn
-	res.AliveCells = currentAlive
+	res.World = b.currentWorld
+	res.CurrentTurn = b.currentTurn
+	res.AliveCells = b.currentAlive
 	//fmt.Println("oh dear")
 	return
 }
 
 func (b *Broker) Alive(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
-	res.AliveCells = currentAlive
-	res.CurrentTurn = currentTurn
+	res.AliveCells = b.currentAlive
+	res.CurrentTurn = b.currentTurn
 	return
 }
 
 func (b *Broker) State(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
-	res.World = currentWorld
-	res.CurrentTurn = currentTurn
+	res.World = b.currentWorld
+	res.CurrentTurn = b.currentTurn
 	return
 }
 
@@ -125,11 +126,11 @@ func (b *Broker) Disconnect(req *stubs.BrokerRequest, res *stubs.BrokerResponse)
 }
 
 func (b *Broker) Pause(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
-	pause = !pause
-	if pause {
-		mu.Lock()
+	b.pause = !b.pause
+	if b.pause {
+		b.mu.Lock()
 	} else {
-		mu.Unlock()
+		b.mu.Unlock()
 	}
 	return
 }
@@ -160,12 +161,13 @@ func (b *Broker) RegisterWorker(req *stubs.RegisterWorkerRequest, res *stubs.Reg
 }
 
 func main() {
-	pAddr := flag.String("port", ":8080", "Port to listen on")
+	pAddr := flag.String("port", ":8030", "Port to listen on")
 	flag.Parse()
 
 	b := &Broker{
 		disconnect: make(chan bool),
 		shutdown:   make(chan bool),
+		pause:      false,
 	}
 	rpc.Register(b)
 	listener, _ := net.Listen("tcp", *pAddr)
@@ -178,4 +180,25 @@ func main() {
 
 	rpc.Accept(listener)
 
+}
+
+//workerAddresses []string
+//mu              sync.Mutex
+//disconnect      chan bool
+//shutdown        chan bool
+//currentWorld [][]byte
+//currentTurn  int
+//currentAlive []util.Cell
+//pause        bool
+
+func calculateAliveCells(world [][]byte) []util.Cell {
+	var celllist []util.Cell
+	for r, row := range world {
+		for c := range row {
+			if world[r][c] == 255 {
+				celllist = append(celllist, util.Cell{X: c, Y: r})
+			}
+		}
+	}
+	return celllist
 }
