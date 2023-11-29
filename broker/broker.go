@@ -29,15 +29,19 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 	//}
 
 	turn := 0
-
+	b.mu.Lock()
 	b.currentWorld = world
 	b.currentTurn = turn
 	b.currentAlive = calculateAliveCells(world)
+	b.mu.Unlock()
 	//if b.currentTurn != 0 {
 	//	// Initialize currentWorld because it's nil
 	//	turn = b.currentTurn
 	//}
+	b.mu.Lock()
 	threads := len(b.workerAddresses)
+	b.mu.Unlock()
+
 	for turn < turns {
 
 		select {
@@ -182,15 +186,6 @@ func main() {
 	rpc.Accept(listener)
 
 }
-
-//workerAddresses []string
-//mu              sync.Mutex
-//disconnect      chan bool
-//shutdown        chan bool
-//currentWorld [][]byte
-//currentTurn  int
-//currentAlive []util.Cell
-//pause        bool
 
 func calculateAliveCells(world [][]byte) []util.Cell {
 	var celllist []util.Cell

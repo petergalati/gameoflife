@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/rpc"
 	"uk.ac.bris.cs/gameoflife/stubs"
-	"uk.ac.bris.cs/gameoflife/util"
 	//"uk.ac.bris.cs/gameoflife/util"
 )
 
@@ -27,7 +26,7 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 	}
 
 	res.Slice = calculateNextState(segment)
-	res.AliveCells = calculateAliveCells(res.Slice)
+	//res.AliveCells = calculateAliveCells(res.Slice)
 
 	return
 
@@ -99,17 +98,17 @@ func checkNeighbours(world [][]byte, r int, c int) int {
 	return neighbourCount
 }
 
-func calculateAliveCells(world [][]byte) []util.Cell {
-	var celllist []util.Cell
-	for r, row := range world {
-		for c := range row {
-			if world[r][c] == 255 {
-				celllist = append(celllist, util.Cell{X: c, Y: r})
-			}
-		}
-	}
-	return celllist
-}
+//func calculateAliveCells(world [][]byte) []util.Cell {
+//	var celllist []util.Cell
+//	for r, row := range world {
+//		for c := range row {
+//			if world[r][c] == 255 {
+//				celllist = append(celllist, util.Cell{X: c, Y: r})
+//			}
+//		}
+//	}
+//	return celllist
+//}
 
 func registerWithBroker(client *rpc.Client, ip string, port string) {
 	request := stubs.RegisterWorkerRequest{ip, port}

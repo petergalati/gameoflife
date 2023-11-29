@@ -119,7 +119,7 @@ func distributor(p Params, c distributorChannels) {
 				case 'q':
 					// close client gracefully
 					engineDisconnect(client, c)
-					close(c.events)
+					//close(c.events)
 
 				case 'p':
 					// pause execution
