@@ -14,6 +14,8 @@ type Worker struct {
 }
 
 func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (err error) {
+	world := req.World
+	world = calculateNextState(world)
 
 	endX := len(req.World[0])
 	startY := req.StartY
@@ -22,11 +24,11 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 	segment := make([][]byte, endY-startY)
 	for y := range segment {
 		segment[y] = make([]byte, endX)
-		copy(segment[y], req.World[y+startY])
+		copy(segment[y], world[y+startY])
 	}
 
-	res.Slice = calculateNextState(segment)
 	//res.AliveCells = calculateAliveCells(res.Slice)
+	res.Slice = segment
 
 	return
 

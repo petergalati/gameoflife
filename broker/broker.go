@@ -39,7 +39,7 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 	//	turn = b.currentTurn
 	//}
 	b.mu.Lock()
-	threads := len(b.workerAddresses)
+	nodes := len(b.workerAddresses)
 	b.mu.Unlock()
 
 	for turn < turns {
@@ -49,19 +49,18 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 			return
 		default:
 			var wg sync.WaitGroup
-			slices := make([][][]byte, threads)
+			slices := make([][][]byte, nodes)
 			//var aliveCells []util.Cell
-			for i, address := range b.workerAddresses {
-
-				address := address
+			for i := 0; i < nodes; i++ {
+				address := b.workerAddresses[i]
 				i := i
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 					client, _ := rpc.Dial("tcp", address)
 					defer client.Close()
-					startY := i * len(world) / threads
-					endY := (i + 1) * len(world) / threads
+					startY := i * len(world) / nodes
+					endY := (i + 1) * len(world) / nodes
 
 					request := stubs.WorkerRequest{World: world, StartY: startY, EndY: endY}
 					response := new(stubs.WorkerResponse)
