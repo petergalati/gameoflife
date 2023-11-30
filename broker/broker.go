@@ -48,6 +48,7 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 		case <-b.disconnect:
 			return
 		default:
+
 			var wg sync.WaitGroup
 			slices := make([][][]byte, nodes)
 			//var aliveCells []util.Cell

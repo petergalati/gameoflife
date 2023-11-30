@@ -52,9 +52,45 @@ func pollEngineAlive(client *rpc.Client, c distributorChannels, done <-chan bool
 			worldLock.Lock()
 			c.events <- AliveCellsCount{response.CurrentTurn, len(response.AliveCells)}
 			worldLock.Unlock()
+
 		}
 	}
 
+}
+func genEngineSDL(client *rpc.Client, c distributorChannels, done <-chan bool, firstWorld [][]byte) {
+	//setting up intials
+	lastTurn := 0
+	oldWorld := firstWorld
+	newWorld := firstWorld
+	//waiting on the response to update to the next images
+	//literally only when running tests!!!!
+
+	time.Sleep(10 * time.Millisecond)
+	for {
+		select {
+		//closing
+		case <-done:
+
+			return
+
+		default:
+			//getting state into response
+			request := stubs.BrokerRequest{}
+			response := new(stubs.BrokerResponse)
+			client.Call(stubs.State, request, response)
+
+			if lastTurn != response.CurrentTurn {
+
+				newWorld = response.World
+
+				rendering(oldWorld, newWorld, c.events, response.CurrentTurn)
+				//updating oldWorld and lastTurn for next change
+				oldWorld = newWorld
+				lastTurn = response.CurrentTurn
+			}
+
+		}
+	}
 }
 
 func enginePgm(client *rpc.Client, c distributorChannels) {
@@ -138,17 +174,24 @@ func distributor(p Params, c distributorChannels) {
 	// ticker goroutine to make rpc call to engine to poll alive cells every 2 seconds
 	done := make(chan bool)
 	defer close(done)
+	request := stubs.BrokerRequest{}
+	response := new(stubs.BrokerResponse)
+	client.Call(stubs.State, request, response)
+
+	go genEngineSDL(client, c, done, world)
 	go pollEngineAlive(client, c, done)
 
-	// make rpc call to engine
 	endStateChan := make(chan endStateInfo)
 	go callEngineEvolve(client, p, c, world, endStateChan)
+
 	endState := <-endStateChan
 
 	// stop ticker goroutine
 	done <- true
+	//stop SDL goroutine
+	done <- true
 
-	fmt.Println("odd stuff is happening")
+	//fmt.Println("odd stuff is happening")
 
 	// generate pgm file
 	generatePgmFile(endState.c, endState.world, endState.p.ImageHeight, endState.p.ImageWidth, endState.turns)
@@ -178,5 +221,19 @@ func generatePgmFile(c distributorChannels, world [][]byte, height int, width in
 		//essentially creating a slice of all the bytes
 		c.ioOutput <- world[i/height][i%height]
 	}
+}
+
+func rendering(oldWorld [][]byte, newWorld [][]byte, events chan<- Event, turn int) {
+	for y := range oldWorld {
+		for x := range oldWorld[0] {
+			//if new/current is differnt to the last cell val then flip
+			if oldWorld[y][x] != newWorld[y][x] {
+				events <- CellFlipped{turn, util.Cell{X: x, Y: y}}
+			}
+		}
+	}
+	//turnComplete renders it MAKES TESTSDL FAIL
+
+	events <- TurnComplete{turn}
 
 }
