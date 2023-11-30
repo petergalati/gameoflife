@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/rpc"
+	"sync"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	//"uk.ac.bris.cs/gameoflife/util"
 )
@@ -12,11 +13,15 @@ import (
 type Worker struct {
 	shutdown     chan bool
 	currentSlice [][]byte
+	mu           sync.Mutex
 }
 
 func (w *Worker) GetHalo(req *stubs.HaloRequest, res *stubs.HaloResponse) (err error) {
+	//fmt.Println("current slice is ", w.currentSlice)
+	w.mu.Lock()
 	res.TopHalo = w.currentSlice[0]
 	res.BottomHalo = w.currentSlice[len(w.currentSlice)-1]
+	w.mu.Unlock()
 
 	return
 }
@@ -24,68 +29,82 @@ func (w *Worker) GetHalo(req *stubs.HaloRequest, res *stubs.HaloResponse) (err e
 //func getHalo()
 
 func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (err error) {
+	w.mu.Lock()
 	w.currentSlice = req.World
+	w.mu.Unlock()
+	//fmt.Println("address book is ", req.AddressBook)
+	//fmt.Println("worker index is ", req.WorkerIndex)
+	//fmt.Println("current slice is ", w.currentSlice)
 
 	topIndex := req.WorkerIndex - 1
 	bottomIndex := req.WorkerIndex + 1
+
+	//fmt.Println("current index is ", req.WorkerIndex)
+	//fmt.Println("top index is ", topIndex)
+	//fmt.Println("bottom index is ", bottomIndex)
+
+	originalHeight := len(req.World)
+	originalWidth := len(req.World[0])
+	haloHeight := originalHeight + 2
 
 	var topHalo []byte
 	var bottomHalo []byte
 
 	// get halo from neighbours
 	if topIndex >= 0 {
-		topClient, _ := rpc.Dial("tcp", req.AddressBook[req.WorkerIndex-1])
+		topClient, _ := rpc.Dial("tcp", req.AddressBook[topIndex])
 		defer topClient.Close()
 		topRequest := stubs.HaloRequest{}
 		topResponse := new(stubs.HaloResponse)
 		topClient.Call(stubs.GetHalo, topRequest, topResponse)
-		topHalo = topResponse.TopHalo
+		topHalo = topResponse.BottomHalo
+	} else {
+		topClient, _ := rpc.Dial("tcp", req.AddressBook[len(req.AddressBook)-1])
+		defer topClient.Close()
+		topRequest := stubs.HaloRequest{}
+		topResponse := new(stubs.HaloResponse)
+		topClient.Call(stubs.GetHalo, topRequest, topResponse)
+		topHalo = topResponse.BottomHalo
 	}
 
 	if bottomIndex < len(req.AddressBook) {
-		bottomClient, _ := rpc.Dial("tcp", req.AddressBook[req.WorkerIndex+1])
+		bottomClient, _ := rpc.Dial("tcp", req.AddressBook[bottomIndex])
 		defer bottomClient.Close()
 		bottomRequest := stubs.HaloRequest{}
 		bottomResponse := new(stubs.HaloResponse)
 		bottomClient.Call(stubs.GetHalo, bottomRequest, bottomResponse)
-		bottomHalo = bottomResponse.BottomHalo
+		bottomHalo = bottomResponse.TopHalo
+	} else {
+		bottomClient, _ := rpc.Dial("tcp", req.AddressBook[0])
+		defer bottomClient.Close()
+		bottomRequest := stubs.HaloRequest{}
+		bottomResponse := new(stubs.HaloResponse)
+		bottomClient.Call(stubs.GetHalo, bottomRequest, bottomResponse)
+		bottomHalo = bottomResponse.TopHalo
 
 	}
 
 	// create a 'haloSegment', which is a segment of the world with a halo of 0s around it
-	originalHeight := len(req.World)
-	originalWidth := len(req.World[0])
-	haloHeight := originalHeight + 2
+	w.mu.Lock()
 
 	haloSegment := make([][]byte, haloHeight)
 	haloSegment[0] = topHalo
 
-	for i := 1; i < originalHeight; i++ {
-		haloSegment[i] = make([]byte, originalWidth)
+	for i := 0; i < originalHeight; i++ {
+		haloSegment[i+1] = make([]byte, originalWidth)
 		copy(haloSegment[i+1], req.World[i])
 	}
 
 	haloSegment[haloHeight-1] = bottomHalo
+	w.mu.Unlock()
+
+	//fmt.Println("halo segment is ", haloSegment)
+	w.mu.Lock()
 
 	nextSlice := calculateNextState(haloSegment)
+	w.mu.Unlock()
+	//fmt.Println("next slice is ", nextSlice)
 	res.Slice = nextSlice[1 : len(nextSlice)-1]
-
-	//world := req.World
-	//world = calculateNextState(world)
-	//
-	//endX := len(req.World[0])
-	//startY := req.StartY
-	//endY := req.EndY
-	//
-	//segment := make([][]byte, endY-startY)
-	//for y := range segment {
-	//	segment[y] = make([]byte, endX)
-	//	copy(segment[y], world[y+startY])
-	//}
-	//
-	////res.AliveCells = calculateAliveCells(res.Slice)
-	//res.Slice = segment
-	//fmt.Println("res.Slice is ", res.Slice)
 
 	return
 
@@ -98,16 +117,20 @@ func (w *Worker) Shutdown(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (
 }
 
 func calculateNextState(world [][]byte) [][]byte {
-	nextWorld := make([][]byte, len(world))
+
+	height := len(world)
+	width := len(world[0])
+
+	nextWorld := make([][]byte, height)
 	for i := range world {
-		nextWorld[i] = make([]byte, len(world[i]))
-		copy(nextWorld[i], world[i])
+		nextWorld[i] = make([]byte, width)
+		copy(nextWorld[i], world[i]) // Copy the current state to the next state
 	}
 
-	for r, row := range world {
-		for c := range row {
-			neighbourCount := 0
-			neighbourCount = checkNeighbours(world, r, c)
+	// Iterate through the inner cells, skipping the first and last row and column
+	for r := 1; r < height-1; r++ {
+		for c := 0; c < width; c++ {
+			neighbourCount := checkNeighbours(world, r, c)
 
 			if world[r][c] == 255 { // cell is alive
 				if neighbourCount < 2 || neighbourCount > 3 {
@@ -115,12 +138,12 @@ func calculateNextState(world [][]byte) [][]byte {
 				}
 			} else {
 				if neighbourCount == 3 {
-					nextWorld[r][c] = 255
-				} // cell is dead
+					nextWorld[r][c] = 255 // cell becomes alive
+				}
 			}
 		}
 	}
-
+	//fmt.Println("next world is ", nextWorld)
 	return nextWorld
 }
 
