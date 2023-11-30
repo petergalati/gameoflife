@@ -43,6 +43,7 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 	b.mu.Unlock()
 
 	for turn < turns {
+		fmt.Println("current world is ", b.currentWorld)
 
 		select {
 		case <-b.disconnect:

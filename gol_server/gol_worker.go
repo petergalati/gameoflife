@@ -29,6 +29,7 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 
 	//res.AliveCells = calculateAliveCells(res.Slice)
 	res.Slice = segment
+	fmt.Println("res.Slice is ", res.Slice)
 
 	return
 
@@ -122,17 +123,19 @@ func registerWithBroker(client *rpc.Client, ip string, port string) {
 
 func main() {
 	pAddr := flag.String("port", "8000", "Port to listen on")
+	ipAddr := flag.String("ip", "localhost", "IP address")
 	brokerAddr := flag.String("broker", "localhost:8030", "Broker address")
 
 	flag.Parse()
 
 	fmt.Println("port is ", *pAddr)
+	fmt.Println("ip is ", *ipAddr)
 	fmt.Println("broker is ", *brokerAddr)
 
 	// connect to broker and register new gol worker
 	client, _ := rpc.Dial("tcp", *brokerAddr)
 	defer client.Close()
-	registerWithBroker(client, "localhost", *pAddr)
+	registerWithBroker(client, *ipAddr, *pAddr)
 
 	w := &Worker{
 		shutdown: make(chan bool),
