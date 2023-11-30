@@ -22,6 +22,7 @@ type Broker struct {
 }
 
 func workerLoop(world [][]byte, turns int, b *Broker) {
+	fmt.Println("world is ", world)
 
 	//if currentWorld != nil {
 	//	// Initialize currentWorld because it's nil
@@ -43,7 +44,7 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 	b.mu.Unlock()
 
 	for turn < turns {
-		fmt.Println("current world is ", b.currentWorld)
+		//fmt.Println("current world is ", b.currentWorld)
 
 		select {
 		case <-b.disconnect:
