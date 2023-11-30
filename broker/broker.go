@@ -51,7 +51,6 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 		default:
 			var wg sync.WaitGroup
 			slices := make([][][]byte, nodes)
-			//var aliveCells []util.Cell
 			for i := 0; i < nodes; i++ {
 				address := b.workerAddresses[i]
 				i := i
@@ -63,14 +62,14 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 					startY := i * len(world) / nodes
 					endY := (i + 1) * len(world) / nodes
 
-					request := stubs.WorkerRequest{World: world, StartY: startY, EndY: endY}
+					workerSlice := world[startY:endY]
+
+					request := stubs.WorkerRequest{World: workerSlice, AddressBook: b.workerAddresses, WorkerIndex: i}
 					response := new(stubs.WorkerResponse)
 					client.Call(stubs.EvolveWorker, request, response)
 
 					slices[i] = response.Slice
-					//b.mu.Lock()
-					//aliveCells = append(aliveCells, response.AliveCells...)
-					//b.mu.Unlock()
+
 				}()
 
 			}
@@ -107,7 +106,6 @@ func (b *Broker) Evolve(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (er
 	res.World = b.currentWorld
 	res.CurrentTurn = b.currentTurn
 	res.AliveCells = b.currentAlive
-	//fmt.Println("oh dear")
 	return
 }
 
