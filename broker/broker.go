@@ -22,18 +22,18 @@ type Broker struct {
 }
 
 func workerLoop(world [][]byte, turns int, b *Broker) {
-	//fmt.Println("world is ", world)
 
-	//if b.currentWorld != nil {
-	//	// Initialize currentWorld because it's nil
-	//	world = b.currentWorld
-	//}
+	// If world is not nil, set it to currentWorld as this is the previous state before disconnect
+	if b.currentWorld != nil {
+		world = b.currentWorld
+	}
 
 	turn := 0
-	//if b.currentTurn != 0 {
-	//	// Initialize currentWorld because it's nil
-	//	turn = b.currentTurn
-	//}
+	// If turn is not nil, set it to currentTurn as this is the previous turn before disconnect
+	if b.currentTurn != 0 {
+		// Initialize currentWorld because it's nil
+		turn = b.currentTurn
+	}
 	b.mu.Lock()
 	b.currentWorld = world
 	b.currentTurn = turn
@@ -45,7 +45,6 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 	b.mu.Unlock()
 
 	for turn < turns {
-		//fmt.Println("current world is ", b.currentWorld)
 
 		select {
 		case <-b.disconnect:
@@ -164,7 +163,6 @@ func (b *Broker) RegisterWorker(req *stubs.RegisterWorkerRequest, res *stubs.Reg
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	address := req.Ip + ":" + req.Port
-	//client, _ := rpc.Dial("tcp", address)
 	b.workerAddresses = append(b.workerAddresses, address)
 	fmt.Println("Workers registered: ", b.workerAddresses)
 	return

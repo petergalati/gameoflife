@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/rpc"
 	"sync"
+	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	//"uk.ac.bris.cs/gameoflife/util"
 )
@@ -17,7 +18,6 @@ type Worker struct {
 }
 
 func (w *Worker) GetHalo(req *stubs.HaloRequest, res *stubs.HaloResponse) (err error) {
-	//fmt.Println("current slice is ", w.currentSlice)
 	w.mu.Lock()
 	res.TopHalo = w.currentSlice[0]
 	res.BottomHalo = w.currentSlice[len(w.currentSlice)-1]
@@ -26,22 +26,14 @@ func (w *Worker) GetHalo(req *stubs.HaloRequest, res *stubs.HaloResponse) (err e
 	return
 }
 
-//func getHalo()
-
 func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (err error) {
 	w.mu.Lock()
 	w.currentSlice = req.World
 	w.mu.Unlock()
-	//fmt.Println("address book is ", req.AddressBook)
-	//fmt.Println("worker index is ", req.WorkerIndex)
-	//fmt.Println("current slice is ", w.currentSlice)
+	time.Sleep(10 * time.Millisecond)
 
 	topIndex := req.WorkerIndex - 1
 	bottomIndex := req.WorkerIndex + 1
-
-	//fmt.Println("current index is ", req.WorkerIndex)
-	//fmt.Println("top index is ", topIndex)
-	//fmt.Println("bottom index is ", bottomIndex)
 
 	originalHeight := len(req.World)
 	originalWidth := len(req.World[0])
@@ -98,12 +90,10 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 	haloSegment[haloHeight-1] = bottomHalo
 	w.mu.Unlock()
 
-	//fmt.Println("halo segment is ", haloSegment)
 	w.mu.Lock()
-
 	nextSlice := calculateNextState(haloSegment)
 	w.mu.Unlock()
-	//fmt.Println("next slice is ", nextSlice)
+
 	res.Slice = nextSlice[1 : len(nextSlice)-1]
 
 	return
@@ -124,7 +114,7 @@ func calculateNextState(world [][]byte) [][]byte {
 	nextWorld := make([][]byte, height)
 	for i := range world {
 		nextWorld[i] = make([]byte, width)
-		copy(nextWorld[i], world[i]) // Copy the current state to the next state
+		copy(nextWorld[i], world[i])
 	}
 
 	// Iterate through the inner cells, skipping the first and last row and column
@@ -143,7 +133,6 @@ func calculateNextState(world [][]byte) [][]byte {
 			}
 		}
 	}
-	//fmt.Println("next world is ", nextWorld)
 	return nextWorld
 }
 
@@ -180,24 +169,10 @@ func checkNeighbours(world [][]byte, r int, c int) int {
 	return neighbourCount
 }
 
-//func calculateAliveCells(world [][]byte) []util.Cell {
-//	var celllist []util.Cell
-//	for r, row := range world {
-//		for c := range row {
-//			if world[r][c] == 255 {
-//				celllist = append(celllist, util.Cell{X: c, Y: r})
-//			}
-//		}
-//	}
-//	return celllist
-//}
-
 func registerWithBroker(client *rpc.Client, ip string, port string) {
 	request := stubs.RegisterWorkerRequest{ip, port}
 	response := new(stubs.RegisterWorkerResponse)
-	fmt.Println("request is ", request)
 	client.Call(stubs.RegisterWorker, request, response)
-	fmt.Println("response is ", response)
 }
 
 func main() {
