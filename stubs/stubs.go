@@ -30,9 +30,11 @@ var EvolveWorker = "Worker.Evolve"
 var ShutdownWorker = "Worker.Shutdown"
 
 type WorkerRequest struct {
-	World  [][]byte
-	StartY int
-	EndY   int
+	World       [][]byte
+	StartY      int
+	EndY        int
+	AddressBook []string
+	WorkerIndex int
 }
 
 type WorkerResponse struct {
@@ -50,4 +52,21 @@ type RegisterWorkerRequest struct {
 }
 
 type RegisterWorkerResponse struct {
+}
+
+// Gol Worker to Gol Worker (for halo exchange)
+
+var GetHalo = "Worker.GetHalo"
+
+type HaloRequest struct {
+	Slice         [][]byte
+	StartY        int
+	EndY          int
+	TopAddress    string
+	BottomAddress string
+}
+
+type HaloResponse struct {
+	TopHalo    []byte
+	BottomHalo []byte
 }
