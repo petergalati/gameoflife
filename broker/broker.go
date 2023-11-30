@@ -22,23 +22,24 @@ type Broker struct {
 }
 
 func workerLoop(world [][]byte, turns int, b *Broker) {
-	fmt.Println("world is ", world)
+	//fmt.Println("world is ", world)
 
-	//if currentWorld != nil {
+	//if b.currentWorld != nil {
 	//	// Initialize currentWorld because it's nil
-	//	world = currentWorld
+	//	world = b.currentWorld
 	//}
 
 	turn := 0
+	//if b.currentTurn != 0 {
+	//	// Initialize currentWorld because it's nil
+	//	turn = b.currentTurn
+	//}
 	b.mu.Lock()
 	b.currentWorld = world
 	b.currentTurn = turn
 	b.currentAlive = calculateAliveCells(world)
 	b.mu.Unlock()
-	//if b.currentTurn != 0 {
-	//	// Initialize currentWorld because it's nil
-	//	turn = b.currentTurn
-	//}
+
 	b.mu.Lock()
 	nodes := len(b.workerAddresses)
 	b.mu.Unlock()
@@ -53,19 +54,24 @@ func workerLoop(world [][]byte, turns int, b *Broker) {
 			var wg sync.WaitGroup
 			slices := make([][][]byte, nodes)
 			for i := 0; i < nodes; i++ {
+				b.mu.Lock()
 				address := b.workerAddresses[i]
+				b.mu.Unlock()
+
 				i := i
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 					client, _ := rpc.Dial("tcp", address)
 					defer client.Close()
+					b.mu.Lock()
 					startY := i * len(world) / nodes
 					endY := (i + 1) * len(world) / nodes
-
 					workerSlice := world[startY:endY]
 
 					request := stubs.WorkerRequest{World: workerSlice, AddressBook: b.workerAddresses, WorkerIndex: i}
+
+					b.mu.Unlock()
 					response := new(stubs.WorkerResponse)
 					client.Call(stubs.EvolveWorker, request, response)
 

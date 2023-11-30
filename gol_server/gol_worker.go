@@ -19,9 +19,9 @@ type Worker struct {
 func (w *Worker) GetHalo(req *stubs.HaloRequest, res *stubs.HaloResponse) (err error) {
 	//fmt.Println("current slice is ", w.currentSlice)
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	res.TopHalo = w.currentSlice[0]
 	res.BottomHalo = w.currentSlice[len(w.currentSlice)-1]
+	w.mu.Unlock()
 
 	return
 }
@@ -39,9 +39,9 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 	topIndex := req.WorkerIndex - 1
 	bottomIndex := req.WorkerIndex + 1
 
-	fmt.Println("current index is ", req.WorkerIndex)
-	fmt.Println("top index is ", topIndex)
-	fmt.Println("bottom index is ", bottomIndex)
+	//fmt.Println("current index is ", req.WorkerIndex)
+	//fmt.Println("top index is ", topIndex)
+	//fmt.Println("bottom index is ", bottomIndex)
 
 	originalHeight := len(req.World)
 	originalWidth := len(req.World[0])
@@ -85,6 +85,7 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 	}
 
 	// create a 'haloSegment', which is a segment of the world with a halo of 0s around it
+	w.mu.Lock()
 
 	haloSegment := make([][]byte, haloHeight)
 	haloSegment[0] = topHalo
@@ -95,10 +96,13 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 	}
 
 	haloSegment[haloHeight-1] = bottomHalo
+	w.mu.Unlock()
 
 	//fmt.Println("halo segment is ", haloSegment)
+	w.mu.Lock()
 
 	nextSlice := calculateNextState(haloSegment)
+	w.mu.Unlock()
 	//fmt.Println("next slice is ", nextSlice)
 	res.Slice = nextSlice[1 : len(nextSlice)-1]
 
@@ -113,8 +117,7 @@ func (w *Worker) Shutdown(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (
 }
 
 func calculateNextState(world [][]byte) [][]byte {
-	//fmt.Println("world is ", world)
-	// Assuming world is at least 3x3
+
 	height := len(world)
 	width := len(world[0])
 
