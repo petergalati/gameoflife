@@ -14,6 +14,7 @@ type Broker struct {
 	workerAddresses []string
 	mu              sync.Mutex
 	disconnect      chan bool
+	hasDisconnect   bool
 	shutdown        chan bool
 	currentWorld    [][]byte
 	currentTurn     int
@@ -24,16 +25,19 @@ type Broker struct {
 func workerLoop(world [][]byte, turns int, b *Broker) {
 
 	// If world is not nil, set it to currentWorld as this is the previous state before disconnect
-	if b.currentWorld != nil {
+	if b.currentWorld != nil && b.hasDisconnect {
+		fmt.Println("Current world is ", b.currentWorld)
 		world = b.currentWorld
+		fmt.Println(world)
 	}
 
 	turn := 0
 	// If turn is not nil, set it to currentTurn as this is the previous turn before disconnect
-	if b.currentTurn != 0 {
+	if b.currentTurn != 0 && b.hasDisconnect {
 		// Initialize currentWorld because it's nil
 		turn = b.currentTurn
 	}
+
 	b.mu.Lock()
 	b.currentWorld = world
 	b.currentTurn = turn
@@ -130,6 +134,7 @@ func (b *Broker) State(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err
 }
 
 func (b *Broker) Disconnect(req *stubs.BrokerRequest, res *stubs.BrokerResponse) (err error) {
+	b.hasDisconnect = true
 	b.disconnect <- true
 	return
 }
@@ -173,9 +178,10 @@ func main() {
 	flag.Parse()
 
 	b := &Broker{
-		disconnect: make(chan bool),
-		shutdown:   make(chan bool),
-		pause:      false,
+		disconnect:    make(chan bool),
+		hasDisconnect: false,
+		shutdown:      make(chan bool),
+		pause:         false,
 	}
 	rpc.Register(b)
 	listener, _ := net.Listen("tcp", *pAddr)
