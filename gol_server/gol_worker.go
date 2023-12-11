@@ -30,7 +30,7 @@ func (w *Worker) Evolve(req *stubs.WorkerRequest, res *stubs.WorkerResponse) (er
 	w.mu.Lock()
 	w.currentSlice = req.World
 	w.mu.Unlock()
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
 	topIndex := req.WorkerIndex - 1
 	bottomIndex := req.WorkerIndex + 1

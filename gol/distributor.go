@@ -104,7 +104,7 @@ func distributor(p Params, c distributorChannels) {
 		}
 	}
 
-	client, _ := rpc.Dial("tcp", "3.81.76.197:8030")
+	client, _ := rpc.Dial("tcp", "54.84.151.217:8030")
 
 	// goroutine to handle key presses
 	go func() {
